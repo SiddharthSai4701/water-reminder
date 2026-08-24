@@ -27,7 +27,7 @@ import { PopupManager } from './windows.js';
 
 const TICK_MS = 1000;
 
-let config: Config = { ...loadConfig() };
+let config: Config;
 let packs: Pack[] = [];
 let state: SchedulerState;
 let recent: string[] = [];
@@ -66,11 +66,11 @@ export function applyEffects(transition: Transition): void {
     }
 
     const ctx = pickContext(now);
-    const line = pickLine(packs, effect.stageIndex, config.ladder.length, recent, ctx);
-    recent = pushRecent(recent, line);
+    const picked = pickLine(packs, effect.stageIndex, config.ladder.length, recent, ctx);
+    recent = pushRecent(recent, picked.key);
 
     const payload: PopupPayload = {
-      line,
+      line: picked.text,
       stageIndex: effect.stageIndex,
       mode: effect.mode,
       glasses: ctx.glasses,
@@ -80,7 +80,10 @@ export function applyEffects(transition: Transition): void {
     popups.show(payload, config.cornerPosition);
   }
 
-  tray?.refresh();
+  // Only on a real transition. The 30s timer in the tray keeps the countdown
+  // current; rebuilding a native menu every second is waste and can disturb
+  // an open menu.
+  if (transition.effects.length > 0) tray?.refresh();
 }
 
 export const actions = {
@@ -99,13 +102,13 @@ export const actions = {
     // process's only unchecked external input, and a NaN would set nextDueAt
     // to NaN — every later comparison false, the reminder silently never
     // firing again for the life of the process.
-    if (!Number.isFinite(minutes) || minutes <= 0) return;
+    if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 240) return;
     const now = Date.now();
     appendEvent({ ts: now, type: 'snooze', minutes });
     applyEffects(onSnooze(state, now, minutes, schedulerConfig()));
   },
   setDnd(until: number | null): void {
-    config = saveConfig({ dndUntil: until });
+    config = saveConfig(config, { dndUntil: until });
     applyEffects(setDnd(state, until, Date.now(), schedulerConfig()));
   },
   refreshConfig(): void {
@@ -126,6 +129,10 @@ export const actions = {
 function startLoop(): void {
   setInterval(() => {
     applyEffects(tick(state, Date.now(), schedulerConfig()));
+    // The core decides whether a reminder is owed; the shell checks whether
+    // it is actually on screen. A due reminder with no visible window means
+    // something removed it, and the promise is that nothing can.
+    if (state.phase === 'due') popups.ensureVisible();
   }, TICK_MS);
 }
 
@@ -147,6 +154,7 @@ if (!gotLock) {
       config: () => actions.config(),
       drank: () => actions.drank(),
       setDnd: (until) => actions.setDnd(until),
+      reloadConfig: () => actions.refreshConfig(),
       openSettings: () => {
         // Phase 3 opens the settings window here. Until then, edit config.json.
         console.log('Settings live in config.json until Phase 3.');
@@ -154,6 +162,10 @@ if (!gotLock) {
     });
 
     app.on('before-quit', () => {
+      // The popup vetoes `close` so a reminder cannot be dismissed by
+      // Alt+F4. Quitting is the one legitimate close, and without this the
+      // veto would make the app unquittable while a reminder is up.
+      popups.destroy();
       tray?.destroy();
     });
 

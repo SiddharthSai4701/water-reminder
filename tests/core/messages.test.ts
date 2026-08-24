@@ -70,23 +70,48 @@ describe('eligibleLines', () => {
 describe('pickLine', () => {
   it('renders the chosen line', () => {
     const templated: Pack = { id: 't', name: 'T', lines: [{ text: '{{glasses}} glasses' }] };
-    expect(pickLine([templated], 0, 1, [], ctx, () => 0)).toBe('3 glasses');
+    expect(pickLine([templated], 0, 1, [], ctx, () => 0).text).toBe('3 glasses');
   });
 
   it('excludes recently used lines', () => {
     const picked = pickLine([pack], 0, 3, ['early one', 'early two'], ctx, () => 0);
-    expect(picked).toBe('anywhere');
+    expect(picked.text).toBe('anywhere');
   });
 
   it('ignores the recent list when it would exclude everything', () => {
     const recent = ['early one', 'early two', 'anywhere'];
     const picked = pickLine([pack], 0, 3, recent, ctx, () => 0);
-    expect(picked).toBe('early one');
+    expect(picked.text).toBe('early one');
   });
 
   it('returns a fallback when no line is eligible', () => {
     const empty: Pack = { id: 'e', name: 'E', lines: [] };
-    expect(pickLine([empty], 0, 1, [], ctx, () => 0)).toBe('Time to drink water.');
+    const picked = pickLine([empty], 0, 1, [], ctx, () => 0);
+    expect(picked.text).toBe('Time to drink water.');
+    expect(picked.key).toBe('Time to drink water.');
+  });
+
+  it('suppresses a templated line by its raw template, not its rendered text', () => {
+    const templated: Pack = {
+      id: 't', name: 'T',
+      lines: [{ text: '{{glasses}} glasses' }, { text: 'other' }],
+    };
+    const first = pickLine([templated], 0, 1, [], ctx, () => 0);
+    expect(first.text).toBe('3 glasses');
+    expect(first.key).toBe('{{glasses}} glasses');
+    const second = pickLine([templated], 0, 1, [first.key], ctx, () => 0);
+    expect(second.text).toBe('other');
+  });
+
+  it('falls back to a lower tagged stage rather than the generic line', () => {
+    // pack's highest tag is 2, but the ladder has 4 stages
+    const picked = pickLine([pack], 3, 4, [], ctx, () => 0);
+    expect(picked.text).not.toBe('Time to drink water.');
+  });
+
+  it('collapses every tag onto stage 0 for a single-stage ladder', () => {
+    const texts = eligibleLines([pack], 0, 1).map((l) => l.text);
+    expect(texts).toHaveLength(pack.lines.length);
   });
 });
 

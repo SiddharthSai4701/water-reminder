@@ -96,6 +96,15 @@ describe('normalizeConfig', () => {
     );
   });
 
+  it('rejects an empty or inverted work-hours window', () => {
+    const overnight = normalizeConfig({ schedule: { workStartMinute: 1320, workEndMinute: 360 } });
+    expect(overnight.schedule.workStartMinute).toBe(DEFAULT_CONFIG.schedule.workStartMinute);
+    expect(overnight.schedule.workEndMinute).toBe(DEFAULT_CONFIG.schedule.workEndMinute);
+
+    const empty = normalizeConfig({ schedule: { workStartMinute: 600, workEndMinute: 600 } });
+    expect(empty.schedule.workEndMinute).toBe(DEFAULT_CONFIG.schedule.workEndMinute);
+  });
+
   it('shares no array references with the defaults', () => {
     const a = normalizeConfig({});
     const b = normalizeConfig({});

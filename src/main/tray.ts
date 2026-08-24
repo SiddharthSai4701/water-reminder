@@ -9,6 +9,7 @@ export interface TrayDeps {
   config(): Config;
   drank(): void;
   setDnd(until: number | null): void;
+  reloadConfig(): void;
   openSettings(): void;
 }
 
@@ -55,6 +56,7 @@ export function createTray(deps: TrayDeps): { refresh(): void; destroy(): void }
         { label: 'Pause until tomorrow', click: () => deps.setDnd(addLocalDays(Date.now(), 1)) },
         { label: 'Resume reminders', enabled: paused, click: () => deps.setDnd(null) },
         { type: 'separator' },
+        { label: 'Reload config file', click: () => deps.reloadConfig() },
         { label: 'Settings…', click: () => deps.openSettings() },
         { label: 'Quit', click: () => app.quit() },
       ]),

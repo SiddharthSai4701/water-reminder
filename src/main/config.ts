@@ -16,8 +16,8 @@ export function loadConfig(): Config {
   }
 }
 
-export function saveConfig(patch: Partial<Config>): Config {
-  const next = normalizeConfig({ ...loadConfig(), ...patch });
+export function saveConfig(current: Config, patch: Partial<Config>): Config {
+  const next = normalizeConfig({ ...current, ...patch });
   try {
     store.set('config', next);
   } catch (error) {

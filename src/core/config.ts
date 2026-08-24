@@ -44,10 +44,17 @@ function normalizeSchedule(raw: unknown): Schedule {
         (n): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= 6,
       )
     : d.workDays;
+  const start = clampNumber(r.workStartMinute, 0, 1439, d.workStartMinute);
+  const end = clampNumber(r.workEndMinute, 1, 1440, d.workEndMinute);
+  // An empty or inverted window would mean isWithinWorkHours is false for
+  // every instant and the app silently never fires again. Overnight windows
+  // are not supported yet, so fall back rather than accept one.
+  const validWindow = end > start;
+
   return {
     intervalMinutes: clampNumber(r.intervalMinutes, 1, 600, d.intervalMinutes),
-    workStartMinute: clampNumber(r.workStartMinute, 0, 1439, d.workStartMinute),
-    workEndMinute: clampNumber(r.workEndMinute, 1, 1440, d.workEndMinute),
+    workStartMinute: validWindow ? start : d.workStartMinute,
+    workEndMinute: validWindow ? end : d.workEndMinute,
     // Copied, never aliased: a returned Config must not share arrays with
     // DEFAULT_CONFIG, or one consumer mutating it corrupts every other.
     workDays: days.length > 0 ? [...days] : [...d.workDays],

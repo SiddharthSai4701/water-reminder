@@ -46,6 +46,13 @@ export function eligibleLines(
   return out;
 }
 
+export interface PickedLine {
+  /** The raw template, for the recency list. */
+  key: string;
+  /** The rendered text, for display. */
+  text: string;
+}
+
 export function pickLine(
   packs: Pack[],
   stageIndex: number,
@@ -53,14 +60,20 @@ export function pickLine(
   recent: string[],
   ctx: PickContext,
   rand: () => number = Math.random,
-): string {
-  const eligible = eligibleLines(packs, stageIndex, ladderLength);
-  if (eligible.length === 0) return FALLBACK_LINE;
+): PickedLine {
+  let eligible = eligibleLines(packs, stageIndex, ladderLength);
+  // A ladder can have more stages than any pack tags for. Rather than drop
+  // to the generic fallback at the loudest stage, reuse the closest tagged
+  // stage below it.
+  for (let s = stageIndex - 1; eligible.length === 0 && s >= 0; s--) {
+    eligible = eligibleLines(packs, s, ladderLength);
+  }
+  if (eligible.length === 0) return { key: FALLBACK_LINE, text: FALLBACK_LINE };
 
   const fresh = eligible.filter((line) => !recent.includes(line.text));
   const pool = fresh.length > 0 ? fresh : eligible;
   const chosen = pool[Math.min(pool.length - 1, Math.floor(rand() * pool.length))];
-  return renderTemplate(chosen.text, ctx);
+  return { key: chosen.text, text: renderTemplate(chosen.text, ctx) };
 }
 
 export function pushRecent(recent: string[], text: string, max = RECENT_LIMIT): string[] {

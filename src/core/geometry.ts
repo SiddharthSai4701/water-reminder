@@ -18,10 +18,11 @@ function clamp(value: number, min: number, max: number): number {
 export function popupBounds(
   mode: WindowMode,
   workArea: Rect,
+  displayBounds: Rect,
   corner: CornerPosition,
 ): Rect {
   if (mode === 'fullscreen') {
-    return { ...workArea };
+    return { ...displayBounds };
   }
 
   // Size is clamped before position. Clamping only x and y would keep the
