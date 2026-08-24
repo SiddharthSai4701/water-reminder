@@ -48,7 +48,9 @@ function normalizeSchedule(raw: unknown): Schedule {
     intervalMinutes: clampNumber(r.intervalMinutes, 1, 600, d.intervalMinutes),
     workStartMinute: clampNumber(r.workStartMinute, 0, 1439, d.workStartMinute),
     workEndMinute: clampNumber(r.workEndMinute, 1, 1440, d.workEndMinute),
-    workDays: days.length > 0 ? days : d.workDays,
+    // Copied, never aliased: a returned Config must not share arrays with
+    // DEFAULT_CONFIG, or one consumer mutating it corrupts every other.
+    workDays: days.length > 0 ? [...days] : [...d.workDays],
   };
 }
 
@@ -63,8 +65,13 @@ export function normalizeConfig(raw: unknown): Config {
 
   const preset = PRESETS.includes(r.preset as PresetName) ? (r.preset as PresetName) : d.preset;
 
-  const rawLadder = Array.isArray(r.ladder) ? (r.ladder as Ladder) : d.ladder;
-  const ladder = validateLadder(rawLadder).length === 0 ? rawLadder : PRESET_LADDERS.standard;
+  // validateLadder takes unknown and never throws, so a hand-edited ladder of
+  // arbitrary JSON — [null], ["corner"], 7 — lands on the standard preset
+  // instead of crashing a background app the user cannot see.
+  const ladder: Ladder =
+    validateLadder(r.ladder).length === 0
+      ? (r.ladder as Ladder).map((stage) => ({ ...stage }))
+      : PRESET_LADDERS.standard.map((stage) => ({ ...stage }));
 
   const packIds = Array.isArray(r.activePackIds)
     ? (r.activePackIds as unknown[]).filter((s): s is string => typeof s === 'string')
@@ -85,8 +92,8 @@ export function normalizeConfig(raw: unknown): Config {
     cornerPosition: CORNERS.includes(r.cornerPosition as CornerPosition)
       ? (r.cornerPosition as CornerPosition)
       : d.cornerPosition,
-    activePackIds: packIds.length > 0 ? packIds : d.activePackIds,
-    customLines,
+    activePackIds: packIds.length > 0 ? [...packIds] : [...d.activePackIds],
+    customLines: [...customLines],
     autostart: typeof r.autostart === 'boolean' ? r.autostart : d.autostart,
     soundEnabled: typeof r.soundEnabled === 'boolean' ? r.soundEnabled : d.soundEnabled,
     dndUntil: typeof r.dndUntil === 'number' && Number.isFinite(r.dndUntil) ? r.dndUntil : null,

@@ -78,6 +78,33 @@ describe('normalizeConfig', () => {
     const out = normalizeConfig({ mysteryFlag: true }) as unknown as Record<string, unknown>;
     expect(out.mysteryFlag).toBeUndefined();
   });
+
+  it('never throws on a ladder holding non-object elements', () => {
+    // The likeliest shape of a hand-broken config file.
+    expect(() => normalizeConfig({ ladder: [null] })).not.toThrow();
+    expect(normalizeConfig({ ladder: [null] }).ladder).toEqual(PRESET_LADDERS.standard);
+    expect(normalizeConfig({ ladder: ['corner'] }).ladder).toEqual(PRESET_LADDERS.standard);
+    expect(normalizeConfig({ ladder: 7 }).ladder).toEqual(PRESET_LADDERS.standard);
+  });
+
+  it('falls back to defaults for empty arrays', () => {
+    expect(normalizeConfig({ activePackIds: [] }).activePackIds).toEqual(
+      DEFAULT_CONFIG.activePackIds,
+    );
+    expect(normalizeConfig({ schedule: { workDays: [] } }).schedule.workDays).toEqual(
+      DEFAULT_CONFIG.schedule.workDays,
+    );
+  });
+
+  it('shares no array references with the defaults', () => {
+    const a = normalizeConfig({});
+    const b = normalizeConfig({});
+    expect(a.ladder).not.toBe(b.ladder);
+    expect(a.ladder).not.toBe(PRESET_LADDERS.standard);
+    expect(a.schedule.workDays).not.toBe(DEFAULT_CONFIG.schedule.workDays);
+    expect(a.activePackIds).not.toBe(DEFAULT_CONFIG.activePackIds);
+    expect(a.customLines).not.toBe(DEFAULT_CONFIG.customLines);
+  });
 });
 
 describe('ladderForPreset', () => {

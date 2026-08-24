@@ -1,4 +1,4 @@
-import type { Ladder, PresetName, WindowMode } from '../shared/types.js';
+import type { Ladder, PresetName, Stage, WindowMode } from '../shared/types.js';
 
 const MODES: WindowMode[] = ['corner', 'center', 'fullscreen'];
 
@@ -20,7 +20,12 @@ export const PRESET_LADDERS: Record<Exclude<PresetName, 'custom'>, Ladder> = {
   ],
 };
 
-export function validateLadder(ladder: Ladder): string[] {
+/**
+ * Takes `unknown` rather than `Ladder`: the ladder it validates often comes
+ * straight from a hand-edited config file, so it must survive arbitrary JSON
+ * without throwing.
+ */
+export function validateLadder(ladder: unknown): string[] {
   const errors: string[] = [];
 
   if (!Array.isArray(ladder) || ladder.length === 0) {
@@ -28,18 +33,25 @@ export function validateLadder(ladder: Ladder): string[] {
     return errors;
   }
 
-  ladder.forEach((stage, i) => {
-    if (!MODES.includes(stage.mode)) {
-      errors.push(`stage ${i + 1} has an unknown mode: ${String(stage.mode)}`);
+  ladder.forEach((element: unknown, i) => {
+    if (typeof element !== 'object' || element === null) {
+      errors.push(`stage ${i + 1} is not an object`);
+      return;
     }
-    if (typeof stage.delayMinutes !== 'number' || Number.isNaN(stage.delayMinutes)) {
+
+    const { mode, delayMinutes } = element as Partial<Stage>;
+
+    if (!MODES.includes(mode as WindowMode)) {
+      errors.push(`stage ${i + 1} has an unknown mode: ${String(mode)}`);
+    }
+    if (typeof delayMinutes !== 'number' || Number.isNaN(delayMinutes)) {
       errors.push(`stage ${i + 1} has a non-numeric delayMinutes`);
       return;
     }
-    if (i === 0 && stage.delayMinutes !== 0) {
+    if (i === 0 && delayMinutes !== 0) {
       errors.push('first stage must have delayMinutes 0');
     }
-    if (i > 0 && stage.delayMinutes <= 0) {
+    if (i > 0 && delayMinutes <= 0) {
       errors.push(`stage ${i + 1} must have delayMinutes greater than 0`);
     }
   });

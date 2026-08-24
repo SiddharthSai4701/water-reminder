@@ -49,4 +49,10 @@ describe('validateLadder', () => {
     const ladder = [{ mode: 'gigantic', delayMinutes: 0 }] as unknown as Ladder;
     expect(validateLadder(ladder)).toContain('stage 1 has an unknown mode: gigantic');
   });
+
+  it('rejects a non-object stage without throwing', () => {
+    // A hand-edited config can contain anything; validation must survive it.
+    expect(validateLadder([null])).toContain('stage 1 is not an object');
+    expect(validateLadder(['corner'])).toContain('stage 1 is not an object');
+  });
 });
