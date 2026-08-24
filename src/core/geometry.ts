@@ -11,6 +11,10 @@ export const CORNER_SIZE = { width: 340, height: 150 } as const;
 export const CENTER_SIZE = { width: 520, height: 320 } as const;
 export const CORNER_MARGIN = 24;
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
 export function popupBounds(
   mode: WindowMode,
   workArea: Rect,
@@ -20,17 +24,29 @@ export function popupBounds(
     return { ...workArea };
   }
 
+  // Size is clamped before position. Clamping only x and y would keep the
+  // popup's top-left corner on screen while its right and bottom edges hung
+  // off it — a guard on two edges and silence on the other two.
+  const preferred = mode === 'center' ? CENTER_SIZE : CORNER_SIZE;
+  const width = Math.min(preferred.width, workArea.width);
+  const height = Math.min(preferred.height, workArea.height);
+
+  const minX = workArea.x;
+  const maxX = workArea.x + workArea.width - width;
+  const minY = workArea.y;
+  const maxY = workArea.y + workArea.height - height;
+
   if (mode === 'center') {
     return {
-      x: Math.max(workArea.x, workArea.x + Math.round((workArea.width - CENTER_SIZE.width) / 2)),
-      y: Math.max(workArea.y, workArea.y + Math.round((workArea.height - CENTER_SIZE.height) / 2)),
-      width: CENTER_SIZE.width,
-      height: CENTER_SIZE.height,
+      x: clamp(workArea.x + Math.round((workArea.width - width) / 2), minX, maxX),
+      y: clamp(workArea.y + Math.round((workArea.height - height) / 2), minY, maxY),
+      width,
+      height,
     };
   }
 
-  const right = workArea.x + workArea.width - CORNER_SIZE.width - CORNER_MARGIN;
-  const bottom = workArea.y + workArea.height - CORNER_SIZE.height - CORNER_MARGIN;
+  const right = workArea.x + workArea.width - width - CORNER_MARGIN;
+  const bottom = workArea.y + workArea.height - height - CORNER_MARGIN;
   const left = workArea.x + CORNER_MARGIN;
   const top = workArea.y + CORNER_MARGIN;
 
@@ -38,9 +54,9 @@ export function popupBounds(
   const y = corner === 'top-left' || corner === 'top-right' ? top : bottom;
 
   return {
-    x: Math.max(workArea.x, x),
-    y: Math.max(workArea.y, y),
-    width: CORNER_SIZE.width,
-    height: CORNER_SIZE.height,
+    x: clamp(x, minX, maxX),
+    y: clamp(y, minY, maxY),
+    width,
+    height,
   };
 }

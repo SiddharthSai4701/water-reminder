@@ -49,10 +49,22 @@ describe('popupBounds', () => {
     expect(popupBounds('fullscreen', workArea, 'bottom-right')).toEqual(workArea);
   });
 
-  it('never positions a popup off the left or top edge on a small display', () => {
+  it('keeps every edge inside a work area smaller than the popup', () => {
     const tiny: Rect = { x: 0, y: 0, width: 300, height: 200 };
-    const b = popupBounds('center', tiny, 'bottom-right');
-    expect(b.x).toBeGreaterThanOrEqual(0);
-    expect(b.y).toBeGreaterThanOrEqual(0);
+    for (const mode of ['corner', 'center'] as const) {
+      const b = popupBounds(mode, tiny, 'bottom-right');
+      expect(b.x).toBeGreaterThanOrEqual(tiny.x);
+      expect(b.y).toBeGreaterThanOrEqual(tiny.y);
+      expect(b.x + b.width).toBeLessThanOrEqual(tiny.x + tiny.width);
+      expect(b.y + b.height).toBeLessThanOrEqual(tiny.y + tiny.height);
+    }
+  });
+
+  it('returns a copy for fullscreen rather than aliasing the work area', () => {
+    const area: Rect = { x: 0, y: 40, width: 1920, height: 1000 };
+    const b = popupBounds('fullscreen', area, 'bottom-right');
+    expect(b).not.toBe(area);
+    b.width = 1;
+    expect(area.width).toBe(1920);
   });
 });
