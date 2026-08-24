@@ -168,13 +168,17 @@ Rules:
 
 Settings offers presets that write the ladder, plus Custom for direct editing:
 
-| Preset | Ladder |
-|---|---|
-| **Gentle** | corner @ 0 — a single small card that simply stays put |
-| **Nudge** | corner @ 0 → center @ +5m |
-| **Standard** (default) | corner @ 0 → center @ +3m → fullscreen @ +8m |
-| **Relentless** | corner @ 0 → center @ +2m → fullscreen @ +5m, plus sound at fullscreen |
-| **Custom** | user-defined stages, modes, and delays |
+`delayMinutes` is **relative to the previous stage**. The table below gives
+both, to avoid ambiguity: `delayMinutes` values in the ladder column, and the
+absolute time since the reminder came due in parentheses.
+
+| Preset | Ladder | Absolute times |
+|---|---|---|
+| **Gentle** | corner(0) | 0m — a single small card that simply stays put |
+| **Nudge** | corner(0) → center(5) | 0m, 5m |
+| **Standard** (default) | corner(0) → center(3) → fullscreen(5) | 0m, 3m, 8m |
+| **Relentless** | corner(0) → center(2) → fullscreen(3), sound on the last | 0m, 2m, 5m |
+| **Custom** | user-defined stages, modes, and delays | — |
 
 Standard is the default: it matches the author's stated tolerance while
 remaining the behavior most new users would expect.
@@ -185,7 +189,10 @@ remaining the behavior most new users would expect.
 |---|---|---|---|
 | `corner` | ~320×140, screen corner (corner configurable) | **never steals focus** (`showInactive`) | above normal windows |
 | `center` | ~520×320, centered on active display | takes focus | above normal windows |
-| `fullscreen` | fills every display | takes focus | `screen-saver` level, floats above fullscreen apps |
+| `fullscreen` | fills the display under the cursor | takes focus | `screen-saver` level, floats above fullscreen apps |
+
+Dimming the *other* displays during the fullscreen stage is deferred to Phase
+3. Phase 1 covers one display, chosen by cursor position at show time.
 
 No mode captures global input, hides other applications, or alters any other
 process. The user's work keeps running untouched behind the popup; only the
