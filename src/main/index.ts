@@ -91,6 +91,11 @@ export const actions = {
     applyEffects(onSkip(state, now, schedulerConfig()));
   },
   snooze(minutes: number): void {
+    // The renderer is first-party and sandboxed, but this is the main
+    // process's only unchecked external input, and a NaN would set nextDueAt
+    // to NaN — every later comparison false, the reminder silently never
+    // firing again for the life of the process.
+    if (!Number.isFinite(minutes) || minutes <= 0) return;
     const now = Date.now();
     appendEvent({ ts: now, type: 'snooze', minutes });
     applyEffects(onSnooze(state, now, minutes, schedulerConfig()));

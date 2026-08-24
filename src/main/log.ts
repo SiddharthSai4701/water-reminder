@@ -9,11 +9,22 @@ function logPath(): string {
 }
 
 export function appendEvent(event: LogEvent): void {
-  appendFileSync(logPath(), serializeEvent(event), 'utf8');
+  try {
+    appendFileSync(logPath(), serializeEvent(event), 'utf8');
+  } catch (error) {
+    // Losing one line of history is survivable. Throwing out of the IPC
+    // handler that just recorded a drink is not.
+    console.error('failed to append intake event:', error);
+  }
 }
 
 export function readEvents(): LogEvent[] {
-  const path = logPath();
-  if (!existsSync(path)) return [];
-  return parseLog(readFileSync(path, 'utf8'));
+  try {
+    const path = logPath();
+    if (!existsSync(path)) return [];
+    return parseLog(readFileSync(path, 'utf8'));
+  } catch (error) {
+    console.error('failed to read intake log:', error);
+    return [];
+  }
 }

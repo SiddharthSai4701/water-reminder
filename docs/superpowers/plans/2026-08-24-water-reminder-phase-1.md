@@ -2249,12 +2249,24 @@ import { DEFAULT_CONFIG, normalizeConfig } from '../core/config.js';
 const store = new Store<{ config: unknown }>({ name: 'config' });
 
 export function loadConfig(): Config {
-  return normalizeConfig(store.get('config', DEFAULT_CONFIG));
+  try {
+    return normalizeConfig(store.get('config', DEFAULT_CONFIG));
+  } catch (error) {
+    // This app has no window to show an error in. Every I/O path here
+    // degrades to a working default rather than throwing into a tick handler
+    // and killing a process the user cannot see die.
+    console.error('failed to read config, falling back to defaults:', error);
+    return normalizeConfig({});
+  }
 }
 
 export function saveConfig(patch: Partial<Config>): Config {
   const next = normalizeConfig({ ...loadConfig(), ...patch });
-  store.set('config', next);
+  try {
+    store.set('config', next);
+  } catch (error) {
+    console.error('failed to persist config, continuing in memory:', error);
+  }
   return next;
 }
 ```
@@ -2273,13 +2285,24 @@ function logPath(): string {
 }
 
 export function appendEvent(event: LogEvent): void {
-  appendFileSync(logPath(), serializeEvent(event), 'utf8');
+  try {
+    appendFileSync(logPath(), serializeEvent(event), 'utf8');
+  } catch (error) {
+    // Losing one line of history is survivable. Throwing out of the IPC
+    // handler that just recorded a drink is not.
+    console.error('failed to append intake event:', error);
+  }
 }
 
 export function readEvents(): LogEvent[] {
-  const path = logPath();
-  if (!existsSync(path)) return [];
-  return parseLog(readFileSync(path, 'utf8'));
+  try {
+    const path = logPath();
+    if (!existsSync(path)) return [];
+    return parseLog(readFileSync(path, 'utf8'));
+  } catch (error) {
+    console.error('failed to read intake log:', error);
+    return [];
+  }
 }
 ```
 
@@ -2521,6 +2544,11 @@ export const actions = {
     applyEffects(onSkip(state, now, schedulerConfig()));
   },
   snooze(minutes: number): void {
+    // The renderer is first-party and sandboxed, but this is the main
+    // process's only unchecked external input, and a NaN would set nextDueAt
+    // to NaN — every later comparison false, the reminder silently never
+    // firing again for the life of the process.
+    if (!Number.isFinite(minutes) || minutes <= 0) return;
     const now = Date.now();
     appendEvent({ ts: now, type: 'snooze', minutes });
     applyEffects(onSnooze(state, now, minutes, schedulerConfig()));
