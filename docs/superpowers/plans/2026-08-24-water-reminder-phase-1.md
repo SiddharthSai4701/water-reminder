@@ -1852,7 +1852,7 @@ git commit -m "feat: add popup window geometry for every escalation mode"
 **Files:**
 - Create: `src/preload/index.ts`
 - Create: `src/renderer/popup.html`
-- Create: `src/renderer/popup.tsx`
+- Create: `src/renderer/index.tsx`
 - Create: `src/renderer/Popup.tsx`
 - Create: `src/renderer/popup.css`
 
@@ -1866,6 +1866,8 @@ git commit -m "feat: add popup window geometry for every escalation mode"
     `popup:show` (main → renderer), `popup:drank`, `popup:snooze`, `popup:skip` (renderer → main).
 
 There are no unit tests in this task — it is browser UI with no decision logic. Its verification is the manual run in Task 8, and every value it displays comes from modules already tested in Tasks 1–6.
+
+**File naming:** the entry point is `index.tsx`, not `popup.tsx`, because `popup.tsx` and `Popup.tsx` differ only by case. NTFS and default APFS are both case-insensitive, so the two would be the same path on this dev machine *and* on the target MacBook — the second file written silently overwrites the first. Keep the names distinct in spelling, not just in case.
 
 - [ ] **Step 1: Create `src/preload/index.ts`**
 
@@ -1908,7 +1910,7 @@ export type WaterApi = typeof api;
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="./popup.tsx"></script>
+    <script type="module" src="./index.tsx"></script>
   </body>
 </html>
 ```
@@ -2174,7 +2176,7 @@ export default function Popup(): JSX.Element {
 }
 ```
 
-- [ ] **Step 5: Create `src/renderer/popup.tsx`**
+- [ ] **Step 5: Create `src/renderer/index.tsx`**
 
 ```tsx
 import { StrictMode } from 'react';
