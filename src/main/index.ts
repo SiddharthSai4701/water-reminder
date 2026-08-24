@@ -22,6 +22,7 @@ import {
 import { loadConfig, saveConfig } from './config.js';
 import { appendEvent, readEvents } from './log.js';
 import { loadPacks } from './packs.js';
+import { createTray } from './tray.js';
 import { PopupManager } from './windows.js';
 
 const TICK_MS = 1000;
@@ -31,6 +32,7 @@ let packs: Pack[] = [];
 let state: SchedulerState;
 let recent: string[] = [];
 let popups: PopupManager;
+let tray: ReturnType<typeof createTray> | null = null;
 
 function schedulerConfig(): SchedulerConfig {
   return {
@@ -77,6 +79,8 @@ export function applyEffects(transition: Transition): void {
     };
     popups.show(payload, config.cornerPosition);
   }
+
+  tray?.refresh();
 }
 
 export const actions = {
@@ -134,6 +138,20 @@ if (!gotLock) {
     packs = loadPacks(config.activePackIds, config.customLines);
     popups = new PopupManager();
     state = createInitialState(Date.now(), schedulerConfig());
+
+    app.setLoginItemSettings({ openAtLogin: config.autostart, args: ['--hidden'] });
+
+    tray = createTray({
+      nextDueAt: () => actions.nextDueAt(),
+      state: () => actions.state(),
+      config: () => actions.config(),
+      drank: () => actions.drank(),
+      setDnd: (until) => actions.setDnd(until),
+      openSettings: () => {
+        // Phase 3 opens the settings window here. Until then, edit config.json.
+        console.log('Settings live in config.json until Phase 3.');
+      },
+    });
 
     if (config.dndUntil !== null && config.dndUntil > Date.now()) {
       applyEffects(setDnd(state, config.dndUntil, Date.now(), schedulerConfig()));
