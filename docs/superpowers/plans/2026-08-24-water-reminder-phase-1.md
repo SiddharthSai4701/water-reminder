@@ -370,7 +370,7 @@ export function validateLadder(ladder: Ladder): string[] {
 - [ ] **Step 8: Run the tests to verify they pass**
 
 Run: `npm test`
-Expected: PASS — 9 tests.
+Expected: PASS — 8 tests.
 
 - [ ] **Step 9: Typecheck**
 
@@ -514,7 +514,8 @@ describe('escalation', () => {
   it('holds the final stage indefinitely without new effects', () => {
     const s = createInitialState(MONDAY_10AM, cfg);
     const due = MONDAY_10AM + 45 * MIN;
-    const out = run(s, [due, due + 8 * MIN, due + 90 * MIN]);
+    // Ticks every stage boundary, as the 1s production loop does, then waits.
+    const out = run(s, [due, due + 3 * MIN, due + 8 * MIN, due + 90 * MIN]);
     expect(out.effects).toHaveLength(3);
     expect(out.state.stageIndex).toBe(2);
     expect(out.state.phase).toBe('due');
@@ -740,14 +741,21 @@ export function tick(state: SchedulerState, now: number, cfg: SchedulerConfig): 
   }
 }
 
-// The action handlers ignore the previous state by design: every action fully
-// re-arms the schedule from `now`, which is what collapses missed intervals.
-export function onDrank(_state: SchedulerState, now: number, cfg: SchedulerConfig): Transition {
+/**
+ * Clear the popup and re-arm a full interval from `now`. The action handlers
+ * ignore their previous state by design — re-deriving from `now` is exactly
+ * what stops missed intervals from queueing up.
+ */
+function rearm(now: number, cfg: SchedulerConfig): Transition {
   return { state: createInitialState(now, cfg), effects: [{ type: 'hide' }] };
 }
 
+export function onDrank(_state: SchedulerState, now: number, cfg: SchedulerConfig): Transition {
+  return rearm(now, cfg);
+}
+
 export function onSkip(_state: SchedulerState, now: number, cfg: SchedulerConfig): Transition {
-  return { state: createInitialState(now, cfg), effects: [{ type: 'hide' }] };
+  return rearm(now, cfg);
 }
 
 export function onSnooze(
@@ -775,7 +783,7 @@ export function setDnd(
   cfg: SchedulerConfig,
 ): Transition {
   if (until === null) {
-    return { state: createInitialState(now, cfg), effects: [{ type: 'hide' }] };
+    return rearm(now, cfg);
   }
   return {
     state: {
