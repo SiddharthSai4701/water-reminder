@@ -306,6 +306,12 @@ describe('validateLadder', () => {
     const ladder = [{ mode: 'gigantic', delayMinutes: 0 }] as unknown as Ladder;
     expect(validateLadder(ladder)).toContain('stage 1 has an unknown mode: gigantic');
   });
+
+  it('rejects a non-object stage without throwing', () => {
+    // A hand-edited config can contain anything; validation must survive it.
+    expect(validateLadder([null])).toContain('stage 1 is not an object');
+    expect(validateLadder(['corner'])).toContain('stage 1 is not an object');
+  });
 });
 ```
 
@@ -317,7 +323,7 @@ Expected: FAIL — cannot resolve `../../src/core/ladder.js`.
 - [ ] **Step 7: Create `src/core/ladder.ts`**
 
 ```ts
-import type { Ladder, PresetName, WindowMode } from '../shared/types.js';
+import type { Ladder, PresetName, Stage, WindowMode } from '../shared/types.js';
 
 const MODES: WindowMode[] = ['corner', 'center', 'fullscreen'];
 
@@ -339,7 +345,12 @@ export const PRESET_LADDERS: Record<Exclude<PresetName, 'custom'>, Ladder> = {
   ],
 };
 
-export function validateLadder(ladder: Ladder): string[] {
+/**
+ * Takes `unknown` rather than `Ladder`: the ladder it validates often comes
+ * straight from a hand-edited config file, so it must survive arbitrary JSON
+ * without throwing.
+ */
+export function validateLadder(ladder: unknown): string[] {
   const errors: string[] = [];
 
   if (!Array.isArray(ladder) || ladder.length === 0) {
@@ -347,18 +358,25 @@ export function validateLadder(ladder: Ladder): string[] {
     return errors;
   }
 
-  ladder.forEach((stage, i) => {
-    if (!MODES.includes(stage.mode)) {
-      errors.push(`stage ${i + 1} has an unknown mode: ${String(stage.mode)}`);
+  ladder.forEach((element: unknown, i) => {
+    if (typeof element !== 'object' || element === null) {
+      errors.push(`stage ${i + 1} is not an object`);
+      return;
     }
-    if (typeof stage.delayMinutes !== 'number' || Number.isNaN(stage.delayMinutes)) {
+
+    const { mode, delayMinutes } = element as Partial<Stage>;
+
+    if (!MODES.includes(mode as WindowMode)) {
+      errors.push(`stage ${i + 1} has an unknown mode: ${String(mode)}`);
+    }
+    if (typeof delayMinutes !== 'number' || Number.isNaN(delayMinutes)) {
       errors.push(`stage ${i + 1} has a non-numeric delayMinutes`);
       return;
     }
-    if (i === 0 && stage.delayMinutes !== 0) {
+    if (i === 0 && delayMinutes !== 0) {
       errors.push('first stage must have delayMinutes 0');
     }
-    if (i > 0 && stage.delayMinutes <= 0) {
+    if (i > 0 && delayMinutes <= 0) {
       errors.push(`stage ${i + 1} must have delayMinutes greater than 0`);
     }
   });
@@ -370,7 +388,7 @@ export function validateLadder(ladder: Ladder): string[] {
 - [ ] **Step 8: Run the tests to verify they pass**
 
 Run: `npm test`
-Expected: PASS — 8 tests.
+Expected: PASS — 9 tests.
 
 - [ ] **Step 9: Typecheck**
 
@@ -1019,7 +1037,7 @@ export function pushRecent(recent: string[], text: string, max = RECENT_LIMIT): 
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npm test -- tests/core/messages.test.ts`
-Expected: PASS — 12 tests.
+Expected: PASS — 13 tests.
 
 - [ ] **Step 5: Write the failing test for the sarcastic pack**
 
@@ -1260,6 +1278,33 @@ describe('normalizeConfig', () => {
     const out = normalizeConfig({ mysteryFlag: true }) as Record<string, unknown>;
     expect(out.mysteryFlag).toBeUndefined();
   });
+
+  it('never throws on a ladder holding non-object elements', () => {
+    // The likeliest shape of a hand-broken config file.
+    expect(() => normalizeConfig({ ladder: [null] })).not.toThrow();
+    expect(normalizeConfig({ ladder: [null] }).ladder).toEqual(PRESET_LADDERS.standard);
+    expect(normalizeConfig({ ladder: ['corner'] }).ladder).toEqual(PRESET_LADDERS.standard);
+    expect(normalizeConfig({ ladder: 7 }).ladder).toEqual(PRESET_LADDERS.standard);
+  });
+
+  it('falls back to defaults for empty arrays', () => {
+    expect(normalizeConfig({ activePackIds: [] }).activePackIds).toEqual(
+      DEFAULT_CONFIG.activePackIds,
+    );
+    expect(normalizeConfig({ schedule: { workDays: [] } }).schedule.workDays).toEqual(
+      DEFAULT_CONFIG.schedule.workDays,
+    );
+  });
+
+  it('shares no array references with the defaults', () => {
+    const a = normalizeConfig({});
+    const b = normalizeConfig({});
+    expect(a.ladder).not.toBe(b.ladder);
+    expect(a.ladder).not.toBe(PRESET_LADDERS.standard);
+    expect(a.schedule.workDays).not.toBe(DEFAULT_CONFIG.schedule.workDays);
+    expect(a.activePackIds).not.toBe(DEFAULT_CONFIG.activePackIds);
+    expect(a.customLines).not.toBe(DEFAULT_CONFIG.customLines);
+  });
 });
 
 describe('ladderForPreset', () => {
@@ -1332,7 +1377,9 @@ function normalizeSchedule(raw: unknown): Schedule {
     intervalMinutes: clampNumber(r.intervalMinutes, 1, 600, d.intervalMinutes),
     workStartMinute: clampNumber(r.workStartMinute, 0, 1439, d.workStartMinute),
     workEndMinute: clampNumber(r.workEndMinute, 1, 1440, d.workEndMinute),
-    workDays: days.length > 0 ? days : d.workDays,
+    // Copied, never aliased: a returned Config must not share arrays with
+    // DEFAULT_CONFIG, or one consumer mutating it corrupts every other.
+    workDays: days.length > 0 ? [...days] : [...d.workDays],
   };
 }
 
@@ -1347,8 +1394,13 @@ export function normalizeConfig(raw: unknown): Config {
 
   const preset = PRESETS.includes(r.preset as PresetName) ? (r.preset as PresetName) : d.preset;
 
-  const rawLadder = Array.isArray(r.ladder) ? (r.ladder as Ladder) : d.ladder;
-  const ladder = validateLadder(rawLadder).length === 0 ? rawLadder : PRESET_LADDERS.standard;
+  // validateLadder takes unknown and never throws, so a hand-edited ladder of
+  // arbitrary JSON — [null], ["corner"], 7 — lands on the standard preset
+  // instead of crashing a background app the user cannot see.
+  const ladder: Ladder =
+    validateLadder(r.ladder).length === 0
+      ? (r.ladder as Ladder).map((stage) => ({ ...stage }))
+      : PRESET_LADDERS.standard.map((stage) => ({ ...stage }));
 
   const packIds = Array.isArray(r.activePackIds)
     ? (r.activePackIds as unknown[]).filter((s): s is string => typeof s === 'string')
@@ -1369,8 +1421,8 @@ export function normalizeConfig(raw: unknown): Config {
     cornerPosition: CORNERS.includes(r.cornerPosition as CornerPosition)
       ? (r.cornerPosition as CornerPosition)
       : d.cornerPosition,
-    activePackIds: packIds.length > 0 ? packIds : d.activePackIds,
-    customLines,
+    activePackIds: packIds.length > 0 ? [...packIds] : [...d.activePackIds],
+    customLines: [...customLines],
     autostart: typeof r.autostart === 'boolean' ? r.autostart : d.autostart,
     soundEnabled: typeof r.soundEnabled === 'boolean' ? r.soundEnabled : d.soundEnabled,
     dndUntil: typeof r.dndUntil === 'number' && Number.isFinite(r.dndUntil) ? r.dndUntil : null,
