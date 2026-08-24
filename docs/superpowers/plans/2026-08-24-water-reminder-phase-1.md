@@ -2700,10 +2700,25 @@ function chunk(type, data) {
 function dropletAlpha(x, y, size) {
   const nx = (x + 0.5) / size - 0.5;
   const ny = (y + 0.5) / size - 0.5;
-  const cy = ny - 0.14;
-  const circle = Math.hypot(nx, cy) - 0.3;
-  // Cone opening downward from the top point.
-  const cone = Math.abs(nx) * 1.9 + (ny + 0.42) * -1 - 0.0;
+
+  const R = 0.28; // circle radius
+  const cy = 0.06; // circle centre y
+  const topY = -0.36; // apex y, above the circle
+
+  const circle = Math.hypot(nx, ny - cy) - R;
+
+  // Cone: bounded taper from the apex point down to the circle's width,
+  // so the two pieces meet flush instead of the cone running unbounded.
+  let cone;
+  if (ny <= topY) {
+    cone = Math.hypot(nx, topY - ny);
+  } else if (ny >= cy) {
+    cone = 1; // below the taper zone; the circle alone decides here
+  } else {
+    const t = (ny - topY) / (cy - topY); // 0 at apex .. 1 at the circle centre
+    cone = Math.abs(nx) - R * t;
+  }
+
   const d = Math.min(circle, cone);
   if (d <= -0.02) return 255;
   if (d >= 0.02) return 0;
