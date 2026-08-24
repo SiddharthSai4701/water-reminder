@@ -153,6 +153,10 @@ if (!gotLock) {
       },
     });
 
+    app.on('before-quit', () => {
+      tray?.destroy();
+    });
+
     if (config.dndUntil !== null && config.dndUntil > Date.now()) {
       applyEffects(setDnd(state, config.dndUntil, Date.now(), schedulerConfig()));
     }
