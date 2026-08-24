@@ -104,14 +104,21 @@ export function tick(state: SchedulerState, now: number, cfg: SchedulerConfig): 
   }
 }
 
-// The action handlers ignore the previous state by design: every action fully
-// re-arms the schedule from `now`, which is what collapses missed intervals.
-export function onDrank(_state: SchedulerState, now: number, cfg: SchedulerConfig): Transition {
+/**
+ * Clear the popup and re-arm a full interval from `now`. The action handlers
+ * ignore their previous state by design — re-deriving from `now` is exactly
+ * what stops missed intervals from queueing up.
+ */
+function rearm(now: number, cfg: SchedulerConfig): Transition {
   return { state: createInitialState(now, cfg), effects: [{ type: 'hide' }] };
 }
 
+export function onDrank(_state: SchedulerState, now: number, cfg: SchedulerConfig): Transition {
+  return rearm(now, cfg);
+}
+
 export function onSkip(_state: SchedulerState, now: number, cfg: SchedulerConfig): Transition {
-  return { state: createInitialState(now, cfg), effects: [{ type: 'hide' }] };
+  return rearm(now, cfg);
 }
 
 export function onSnooze(
@@ -139,7 +146,7 @@ export function setDnd(
   cfg: SchedulerConfig,
 ): Transition {
   if (until === null) {
-    return { state: createInitialState(now, cfg), effects: [{ type: 'hide' }] };
+    return rearm(now, cfg);
   }
   return {
     state: {
