@@ -54,9 +54,13 @@ function dropletAlpha(x, y, size) {
   }
 
   const d = Math.min(circle, cone);
-  if (d <= -0.02) return 255;
-  if (d >= 0.02) return 0;
-  return Math.round(255 * (1 - (d + 0.02) / 0.04));
+  // Anti-alias band scaled to the pixel grid. A fixed band in normalized
+  // units is under a pixel at 16px and about 40px at 1024px, which reads as
+  // a glow rather than a clean edge.
+  const aa = 1.2 / size;
+  if (d <= -aa) return 255;
+  if (d >= aa) return 0;
+  return Math.round(255 * (1 - (d + aa) / (2 * aa)));
 }
 
 function makePng(size) {
