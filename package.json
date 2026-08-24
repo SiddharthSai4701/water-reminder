@@ -40,12 +40,12 @@
       { "from": "packs", "to": "packs" },
       { "from": "resources", "to": "resources" }
     ],
-    "win": { "target": ["nsis"], "icon": "resources/icon-256.png" },
+    "win": { "target": ["nsis"], "icon": "resources/icon-1024.png" },
     "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
     "mac": {
       "target": ["dmg"],
       "category": "public.app-category.healthcare-fitness",
-      "icon": "resources/icon-256.png",
+      "icon": "resources/icon-1024.png",
       "identity": null,
       "extendInfo": { "LSUIElement": true }
     }

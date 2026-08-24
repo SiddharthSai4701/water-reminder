@@ -91,7 +91,7 @@ function makePng(size) {
 }
 
 mkdirSync(OUT_DIR, { recursive: true });
-for (const size of [16, 32, 256]) {
+for (const size of [16, 32, 256, 512, 1024]) {
   const file = join(OUT_DIR, `icon-${size}.png`);
   writeFileSync(file, makePng(size));
   console.log(`wrote ${file}`);
