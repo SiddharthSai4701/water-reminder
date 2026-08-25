@@ -1,6 +1,6 @@
 {
   "name": "water-reminder",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "A water reminder that will not let you ignore it.",
   "main": "out/main/index.js",
   "private": true,
