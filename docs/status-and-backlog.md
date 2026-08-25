@@ -202,7 +202,11 @@ Changed from the original spec during Mac testing, at the user's request:
 - Interval: **30 minutes** (was 45)
 - Daily goal: **4 L** (was 2.5 L)
 - Glass: 250 ml
-- Work hours: 09:00–18:00, Mon–Fri
+- Work hours: **24/7** — 00:00–24:00, all seven days. Changed in v0.1.4: the
+  09:00–18:00 Mon–Fri default meant reminders stopped every evening, which
+  is what the "Due now" report turned out to be. The schedule stays in the
+  config and becomes editable in Phase 3a; the default simply no longer
+  holds anything.
 - Ladder: Standard — corner @ 0, centered @ +3m, fullscreen @ +5m
   (absolute 0m / 3m / 8m)
 
