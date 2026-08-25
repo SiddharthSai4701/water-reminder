@@ -61,27 +61,44 @@ export default function Popup(): JSX.Element {
         <div className="meta">
           {`${payload.glasses} ${payload.glasses === 1 ? 'glass' : 'glasses'} today`}
         </div>
+        {/* The durations replace the action row in place rather than opening
+            a dropdown. A popped-up menu cannot fit inside a 240px corner
+            card, and anchoring it to the button put it off the top edge. */}
         <div className="actions">
-          <button className="primary" onClick={() => window.water.drank()}>
-            Drank it
-          </button>
-          <div className="snooze-wrap">
-            <button onClick={() => setMenuOpen((open) => !open)}>
-              {`Snooze ${payload.defaultSnoozeMinutes}m ▾`}
-            </button>
-            {menuOpen && (
-              <div className="snooze-menu">
-                {SNOOZE_CHOICES.map((minutes) => (
-                  <button key={minutes} onClick={() => window.water.snooze(minutes)}>
-                    {`${minutes} minutes`}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <button className="ghost" title="Skip" onClick={() => window.water.skip()}>
-            ✕
-          </button>
+          {menuOpen ? (
+            <>
+              {SNOOZE_CHOICES.map((minutes) => (
+                <button key={minutes} onClick={() => window.water.snooze(minutes)}>
+                  {`${minutes}m`}
+                </button>
+              ))}
+              <button
+                className="ghost"
+                aria-label="Back"
+                title="Back"
+                onClick={() => setMenuOpen(false)}
+              >
+                ↩
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="primary" onClick={() => window.water.drank()}>
+                Drank it
+              </button>
+              <button onClick={() => setMenuOpen(true)}>
+                {`Snooze ${payload.defaultSnoozeMinutes}m ▾`}
+              </button>
+              <button
+                className="ghost"
+                aria-label="Skip"
+                title="Skip"
+                onClick={() => window.water.skip()}
+              >
+                ✕
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
