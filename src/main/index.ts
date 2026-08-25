@@ -146,7 +146,12 @@ if (!gotLock) {
     popups = new PopupManager();
     state = createInitialState(Date.now(), schedulerConfig());
 
-    app.setLoginItemSettings({ openAtLogin: config.autostart, args: ['--hidden'] });
+    // Packaged builds only. In dev, process.execPath is node_modules' bare
+    // electron.exe with no app path, so registering it means every login
+    // launches Electron's default welcome window instead of this app.
+    if (app.isPackaged) {
+      app.setLoginItemSettings({ openAtLogin: config.autostart, args: ['--hidden'] });
+    }
 
     tray = createTray({
       nextDueAt: () => actions.nextDueAt(),
