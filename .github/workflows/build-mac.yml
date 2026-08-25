@@ -1,0 +1,64 @@
+name: Build macOS app
+
+# The .dmg can only be produced on macOS, so this runs on a GitHub-hosted
+# Mac. Push a v* tag to get a downloadable release; run it manually from the
+# Actions tab to get a build artifact without cutting a release.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate icons
+        run: npm run icons
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build the .dmg
+        run: npm run dist:mac
+        env:
+          # Ad-hoc signed: no Developer ID certificate involved, so skip
+          # notarization. First launch needs right-click -> Open.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: water-reminder-macos
+          path: dist/*.dmg
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.dmg
+          body: |
+            Download the `.dmg` below on your Mac.
+
+            **First launch:** the build is ad-hoc signed, so Gatekeeper
+            blocks a normal double-click. Right-click the app and choose
+            **Open**, then confirm. Only needed once.
+
+            The app lives in the menu bar — it has no Dock icon by design.
