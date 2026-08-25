@@ -33,3 +33,14 @@ describe('sarcastic pack', () => {
     expect(eligibleLines([pack], 1, 2).length).toBeGreaterThan(5);
   });
 });
+
+describe('sarcastic pack pluralization', () => {
+  it('never follows a glass count with a hardcoded plural noun', () => {
+    // "1 glasses today" is the bug this guards. Any line interpolating a
+    // count must use {{glassWord}} so the noun agrees with the number.
+    const offenders = pack.lines
+      .map((l) => l.text)
+      .filter((t) => /\{\{glasses\}\}\s+glass(es)?\b/.test(t));
+    expect(offenders).toEqual([]);
+  });
+});

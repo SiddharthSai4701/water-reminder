@@ -123,3 +123,17 @@ describe('pushRecent', () => {
     expect(recent[0]).toBe('line 3');
   });
 });
+
+describe('pluralization', () => {
+  it('renders glassWord as singular for exactly one glass', () => {
+    const one: PickContext = { glasses: 1, streak: 0, goalPct: 10 };
+    expect(renderTemplate('{{glasses}} {{glassWord}} today', one)).toBe('1 glass today');
+  });
+
+  it('renders glassWord as plural for zero and many', () => {
+    const none: PickContext = { glasses: 0, streak: 0, goalPct: 0 };
+    const many: PickContext = { glasses: 4, streak: 0, goalPct: 40 };
+    expect(renderTemplate('{{glasses}} {{glassWord}}', none)).toBe('0 glasses');
+    expect(renderTemplate('{{glasses}} {{glassWord}}', many)).toBe('4 glasses');
+  });
+});

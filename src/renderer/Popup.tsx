@@ -58,7 +58,9 @@ export default function Popup(): JSX.Element {
         {/* Siblings, not nested: the corner card line-clamps .line, which
             would otherwise clip the glass count along with the message. */}
         <div className="line">{payload.line}</div>
-        <div className="meta">{`${payload.glasses} glasses today`}</div>
+        <div className="meta">
+          {`${payload.glasses} ${payload.glasses === 1 ? 'glass' : 'glasses'} today`}
+        </div>
         <div className="actions">
           <button className="primary" onClick={() => window.water.drank()}>
             Drank it

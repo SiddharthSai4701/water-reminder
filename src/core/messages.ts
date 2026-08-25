@@ -13,6 +13,9 @@ export interface PickContext {
 export function renderTemplate(text: string, ctx: PickContext): string {
   return text
     .replaceAll('{{glasses}}', String(ctx.glasses))
+    // Pair with {{glasses}} rather than hardcoding "glasses" in pack copy,
+    // so a line reads "1 glass" and not "1 glasses".
+    .replaceAll('{{glassWord}}', ctx.glasses === 1 ? 'glass' : 'glasses')
     .replaceAll('{{streak}}', String(ctx.streak))
     .replaceAll('{{goalPct}}', String(ctx.goalPct));
 }
