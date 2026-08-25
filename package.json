@@ -4,6 +4,9 @@
   "description": "A water reminder that will not let you ignore it.",
   "main": "out/main/index.js",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
@@ -43,7 +46,7 @@
     "win": { "target": ["nsis"], "icon": "resources/icon-1024.png" },
     "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
     "mac": {
-      "target": ["dmg"],
+      "target": [{ "target": "dmg", "arch": ["arm64"] }],
       "category": "public.app-category.healthcare-fitness",
       "icon": "resources/icon-1024.png",
       "identity": null,
