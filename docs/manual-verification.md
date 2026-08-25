@@ -19,7 +19,12 @@ desktop. Run it per OS.
       minutes and confirm it is still there.
 - [ ] Snooze returns the popup at stage 0 after the chosen delay.
 - [ ] Tray pause suppresses reminders; resume re-arms them.
-- [ ] Autostart launches the app on login with no visible window.
+- [ ] Autostart launches the app on login with no visible window. Test this
+      from an INSTALLED build only — autostart is registered only when
+      `app.isPackaged`, because in dev the login item would point at bare
+      `electron.exe` and show Electron's default welcome window at every boot.
+- [ ] After uninstalling a build, confirm no `Run` key entry is left behind:
+      `Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'`.
 - [ ] Sleep the machine past two intervals; on wake exactly one reminder fires.
 
 ## macOS (Phase 2)
