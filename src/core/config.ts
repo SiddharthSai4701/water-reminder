@@ -14,7 +14,7 @@ export const DEFAULT_CONFIG: Config = {
   preset: 'standard',
   ladder: PRESET_LADDERS.standard,
   defaultSnoozeMinutes: 10,
-  goalMl: 2500,
+  goalMl: 4000,
   glassMl: 250,
   cornerPosition: 'bottom-right',
   activePackIds: ['sarcastic'],
