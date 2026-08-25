@@ -2,12 +2,16 @@ import type { Ladder, WindowMode } from '../shared/types.js';
 
 const MIN = 60_000;
 
-export interface SchedulerConfig {
-  intervalMinutes: number;
-  ladder: Ladder;
+/** The part of the schedule that decides whether reminders may fire at all. */
+export interface WorkHours {
   workStartMinute: number;
   workEndMinute: number;
   workDays: number[];
+}
+
+export interface SchedulerConfig extends WorkHours {
+  intervalMinutes: number;
+  ladder: Ladder;
 }
 
 export type SchedulerPhase = 'idle' | 'due' | 'snoozed' | 'paused';
@@ -42,7 +46,7 @@ export function stageOffsets(ladder: Ladder): number[] {
   return offsets;
 }
 
-export function isWithinWorkHours(now: number, cfg: SchedulerConfig): boolean {
+export function isWithinWorkHours(now: number, cfg: WorkHours): boolean {
   const d = new Date(now);
   if (!cfg.workDays.includes(d.getDay())) return false;
   const minuteOfDay = d.getHours() * 60 + d.getMinutes();

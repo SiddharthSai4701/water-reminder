@@ -154,7 +154,6 @@ if (!gotLock) {
     }
 
     tray = createTray({
-      nextDueAt: () => actions.nextDueAt(),
       state: () => actions.state(),
       config: () => actions.config(),
       drank: () => actions.drank(),

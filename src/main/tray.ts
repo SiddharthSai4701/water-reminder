@@ -1,11 +1,12 @@
 import { Menu, Tray, app, nativeImage } from 'electron';
 import { join } from 'node:path';
+import { countdownLabel } from '../core/labels.js';
 import { addLocalDays } from '../core/stats.js';
+import type { SchedulerState } from '../core/scheduler.js';
 import type { Config } from '../shared/types.js';
 
 export interface TrayDeps {
-  nextDueAt(): number;
-  state(): { phase: string };
+  state(): SchedulerState;
   config(): Config;
   drank(): void;
   setDnd(until: number | null): void;
@@ -22,13 +23,8 @@ function iconPath(): string {
     : join(app.getAppPath(), 'resources', file);
 }
 
-function countdownLabel(deps: TrayDeps): string {
-  const phase = deps.state().phase;
-  if (phase === 'paused') return 'Paused';
-  if (phase === 'due') return 'Waiting on you';
-  const remaining = deps.nextDueAt() - Date.now();
-  if (remaining <= 0) return 'Due now';
-  return `Next drink in ${Math.max(1, Math.round(remaining / MIN))} min`;
+function label(deps: TrayDeps): string {
+  return countdownLabel(deps.state(), Date.now(), deps.config().schedule);
 }
 
 export function createTray(deps: TrayDeps): { refresh(): void; destroy(): void } {
@@ -41,10 +37,10 @@ export function createTray(deps: TrayDeps): { refresh(): void; destroy(): void }
     const config = deps.config();
     const paused = config.dndUntil !== null && config.dndUntil > Date.now();
 
-    tray.setToolTip(`Water Reminder — ${countdownLabel(deps)}`);
+    tray.setToolTip(`Water Reminder — ${label(deps)}`);
     tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: countdownLabel(deps), enabled: false },
+        { label: label(deps), enabled: false },
         { type: 'separator' },
         { label: 'Drink now', click: () => deps.drank() },
         { type: 'separator' },
