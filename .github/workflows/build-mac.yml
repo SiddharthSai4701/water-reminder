@@ -58,10 +58,19 @@ jobs:
         with:
           files: dist/*.dmg
           body: |
-            Download the `.dmg` below on your Mac.
+            Download the `.dmg` below on your Mac and drag the app to
+            Applications.
 
-            **First launch:** the build is ad-hoc signed, so Gatekeeper
-            blocks a normal double-click. Right-click the app and choose
-            **Open**, then confirm. Only needed once.
+            **First launch:** the build is ad-hoc signed rather than signed
+            with a paid Apple Developer certificate, so Gatekeeper blocks a
+            normal double-click. Right-click the app and choose **Open**,
+            then confirm. Only needed once.
+
+            If macOS instead claims the app **"is damaged"**, that is the
+            download quarantine flag, not a corrupt file. Clear it:
+
+            ```bash
+            xattr -cr "/Applications/Water Reminder.app"
+            ```
 
             The app lives in the menu bar — it has no Dock icon by design.

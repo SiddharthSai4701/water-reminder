@@ -80,7 +80,8 @@
       "extendInfo": {
         "LSUIElement": true
       }
-    }
+    },
+    "afterPack": "scripts/adhoc-sign.cjs"
   },
   "author": "Siddharth Vijay Sai"
 }

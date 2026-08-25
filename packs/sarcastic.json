@@ -67,6 +67,8 @@
     { "text": "I do not blink. I do not tire. Drink the water.", "stage": [2] },
     { "text": "Whatever you were doing survived the last interruption too.", "stage": [2] },
     { "text": "Consider this your body's escalation policy.", "stage": [2] },
-    { "text": "One glass. Then I go quiet.", "stage": [2] }
+    { "text": "One glass. Then I go quiet.", "stage": [2] },
+    {"text": "Really? Twice? Not cool.", "stage": [2]},
+    {"text": "Pretty please?", "stage": [2]}
   ]
 }
