@@ -36,7 +36,10 @@ jobs:
         run: npm test
 
       - name: Build the .dmg
-        run: npm run dist:mac
+        # --publish never: electron-builder tries to upload to GitHub itself
+        # when it sees a tag, which needs its own token. The release step
+        # below owns publishing.
+        run: npx electron-vite build && npx electron-builder --mac --publish never
         env:
           # Ad-hoc signed: no Developer ID certificate involved, so skip
           # notarization. First launch needs right-click -> Open.

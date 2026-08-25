@@ -6,7 +6,7 @@ export const CONFIG_VERSION = 1;
 export const DEFAULT_CONFIG: Config = {
   version: CONFIG_VERSION,
   schedule: {
-    intervalMinutes: 45,
+    intervalMinutes: 30,
     workStartMinute: 9 * 60,
     workEndMinute: 18 * 60,
     workDays: [1, 2, 3, 4, 5],

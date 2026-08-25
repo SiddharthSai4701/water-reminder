@@ -37,20 +37,50 @@
   "build": {
     "appId": "com.sidvs.waterreminder",
     "productName": "Water Reminder",
-    "directories": { "output": "dist", "buildResources": "resources" },
-    "files": ["out/**/*", "package.json"],
-    "extraResources": [
-      { "from": "packs", "to": "packs" },
-      { "from": "resources", "to": "resources" }
+    "directories": {
+      "output": "dist",
+      "buildResources": "resources"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
     ],
-    "win": { "target": ["nsis"], "icon": "resources/icon-1024.png" },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
+    "extraResources": [
+      {
+        "from": "packs",
+        "to": "packs"
+      },
+      {
+        "from": "resources",
+        "to": "resources"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "resources/icon-1024.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
     "mac": {
-      "target": [{ "target": "dmg", "arch": ["arm64"] }],
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
       "category": "public.app-category.healthcare-fitness",
       "icon": "resources/icon-1024.png",
       "identity": null,
-      "extendInfo": { "LSUIElement": true }
+      "extendInfo": {
+        "LSUIElement": true
+      }
     }
-  }
+  },
+  "author": "Siddharth Vijay Sai"
 }
