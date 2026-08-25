@@ -306,6 +306,12 @@ describe('validateLadder', () => {
     const ladder = [{ mode: 'gigantic', delayMinutes: 0 }] as unknown as Ladder;
     expect(validateLadder(ladder)).toContain('stage 1 has an unknown mode: gigantic');
   });
+
+  it('rejects a non-object stage without throwing', () => {
+    // A hand-edited config can contain anything; validation must survive it.
+    expect(validateLadder([null])).toContain('stage 1 is not an object');
+    expect(validateLadder(['corner'])).toContain('stage 1 is not an object');
+  });
 });
 ```
 
@@ -317,7 +323,7 @@ Expected: FAIL — cannot resolve `../../src/core/ladder.js`.
 - [ ] **Step 7: Create `src/core/ladder.ts`**
 
 ```ts
-import type { Ladder, PresetName, WindowMode } from '../shared/types.js';
+import type { Ladder, PresetName, Stage, WindowMode } from '../shared/types.js';
 
 const MODES: WindowMode[] = ['corner', 'center', 'fullscreen'];
 
@@ -339,7 +345,12 @@ export const PRESET_LADDERS: Record<Exclude<PresetName, 'custom'>, Ladder> = {
   ],
 };
 
-export function validateLadder(ladder: Ladder): string[] {
+/**
+ * Takes `unknown` rather than `Ladder`: the ladder it validates often comes
+ * straight from a hand-edited config file, so it must survive arbitrary JSON
+ * without throwing.
+ */
+export function validateLadder(ladder: unknown): string[] {
   const errors: string[] = [];
 
   if (!Array.isArray(ladder) || ladder.length === 0) {
@@ -347,18 +358,25 @@ export function validateLadder(ladder: Ladder): string[] {
     return errors;
   }
 
-  ladder.forEach((stage, i) => {
-    if (!MODES.includes(stage.mode)) {
-      errors.push(`stage ${i + 1} has an unknown mode: ${String(stage.mode)}`);
+  ladder.forEach((element: unknown, i) => {
+    if (typeof element !== 'object' || element === null) {
+      errors.push(`stage ${i + 1} is not an object`);
+      return;
     }
-    if (typeof stage.delayMinutes !== 'number' || Number.isNaN(stage.delayMinutes)) {
+
+    const { mode, delayMinutes } = element as Partial<Stage>;
+
+    if (!MODES.includes(mode as WindowMode)) {
+      errors.push(`stage ${i + 1} has an unknown mode: ${String(mode)}`);
+    }
+    if (typeof delayMinutes !== 'number' || Number.isNaN(delayMinutes)) {
       errors.push(`stage ${i + 1} has a non-numeric delayMinutes`);
       return;
     }
-    if (i === 0 && stage.delayMinutes !== 0) {
+    if (i === 0 && delayMinutes !== 0) {
       errors.push('first stage must have delayMinutes 0');
     }
-    if (i > 0 && stage.delayMinutes <= 0) {
+    if (i > 0 && delayMinutes <= 0) {
       errors.push(`stage ${i + 1} must have delayMinutes greater than 0`);
     }
   });
@@ -514,7 +532,8 @@ describe('escalation', () => {
   it('holds the final stage indefinitely without new effects', () => {
     const s = createInitialState(MONDAY_10AM, cfg);
     const due = MONDAY_10AM + 45 * MIN;
-    const out = run(s, [due, due + 8 * MIN, due + 90 * MIN]);
+    // Ticks every stage boundary, as the 1s production loop does, then waits.
+    const out = run(s, [due, due + 3 * MIN, due + 8 * MIN, due + 90 * MIN]);
     expect(out.effects).toHaveLength(3);
     expect(out.state.stageIndex).toBe(2);
     expect(out.state.phase).toBe('due');
@@ -740,14 +759,21 @@ export function tick(state: SchedulerState, now: number, cfg: SchedulerConfig): 
   }
 }
 
-// The action handlers ignore the previous state by design: every action fully
-// re-arms the schedule from `now`, which is what collapses missed intervals.
-export function onDrank(_state: SchedulerState, now: number, cfg: SchedulerConfig): Transition {
+/**
+ * Clear the popup and re-arm a full interval from `now`. The action handlers
+ * ignore their previous state by design — re-deriving from `now` is exactly
+ * what stops missed intervals from queueing up.
+ */
+function rearm(now: number, cfg: SchedulerConfig): Transition {
   return { state: createInitialState(now, cfg), effects: [{ type: 'hide' }] };
 }
 
+export function onDrank(_state: SchedulerState, now: number, cfg: SchedulerConfig): Transition {
+  return rearm(now, cfg);
+}
+
 export function onSkip(_state: SchedulerState, now: number, cfg: SchedulerConfig): Transition {
-  return { state: createInitialState(now, cfg), effects: [{ type: 'hide' }] };
+  return rearm(now, cfg);
 }
 
 export function onSnooze(
@@ -775,7 +801,7 @@ export function setDnd(
   cfg: SchedulerConfig,
 ): Transition {
   if (until === null) {
-    return { state: createInitialState(now, cfg), effects: [{ type: 'hide' }] };
+    return rearm(now, cfg);
   }
   return {
     state: {
@@ -1011,7 +1037,7 @@ export function pushRecent(recent: string[], text: string, max = RECENT_LIMIT): 
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npm test -- tests/core/messages.test.ts`
-Expected: PASS — 12 tests.
+Expected: PASS — 13 tests.
 
 - [ ] **Step 5: Write the failing test for the sarcastic pack**
 
@@ -1252,6 +1278,33 @@ describe('normalizeConfig', () => {
     const out = normalizeConfig({ mysteryFlag: true }) as Record<string, unknown>;
     expect(out.mysteryFlag).toBeUndefined();
   });
+
+  it('never throws on a ladder holding non-object elements', () => {
+    // The likeliest shape of a hand-broken config file.
+    expect(() => normalizeConfig({ ladder: [null] })).not.toThrow();
+    expect(normalizeConfig({ ladder: [null] }).ladder).toEqual(PRESET_LADDERS.standard);
+    expect(normalizeConfig({ ladder: ['corner'] }).ladder).toEqual(PRESET_LADDERS.standard);
+    expect(normalizeConfig({ ladder: 7 }).ladder).toEqual(PRESET_LADDERS.standard);
+  });
+
+  it('falls back to defaults for empty arrays', () => {
+    expect(normalizeConfig({ activePackIds: [] }).activePackIds).toEqual(
+      DEFAULT_CONFIG.activePackIds,
+    );
+    expect(normalizeConfig({ schedule: { workDays: [] } }).schedule.workDays).toEqual(
+      DEFAULT_CONFIG.schedule.workDays,
+    );
+  });
+
+  it('shares no array references with the defaults', () => {
+    const a = normalizeConfig({});
+    const b = normalizeConfig({});
+    expect(a.ladder).not.toBe(b.ladder);
+    expect(a.ladder).not.toBe(PRESET_LADDERS.standard);
+    expect(a.schedule.workDays).not.toBe(DEFAULT_CONFIG.schedule.workDays);
+    expect(a.activePackIds).not.toBe(DEFAULT_CONFIG.activePackIds);
+    expect(a.customLines).not.toBe(DEFAULT_CONFIG.customLines);
+  });
 });
 
 describe('ladderForPreset', () => {
@@ -1324,7 +1377,9 @@ function normalizeSchedule(raw: unknown): Schedule {
     intervalMinutes: clampNumber(r.intervalMinutes, 1, 600, d.intervalMinutes),
     workStartMinute: clampNumber(r.workStartMinute, 0, 1439, d.workStartMinute),
     workEndMinute: clampNumber(r.workEndMinute, 1, 1440, d.workEndMinute),
-    workDays: days.length > 0 ? days : d.workDays,
+    // Copied, never aliased: a returned Config must not share arrays with
+    // DEFAULT_CONFIG, or one consumer mutating it corrupts every other.
+    workDays: days.length > 0 ? [...days] : [...d.workDays],
   };
 }
 
@@ -1339,8 +1394,13 @@ export function normalizeConfig(raw: unknown): Config {
 
   const preset = PRESETS.includes(r.preset as PresetName) ? (r.preset as PresetName) : d.preset;
 
-  const rawLadder = Array.isArray(r.ladder) ? (r.ladder as Ladder) : d.ladder;
-  const ladder = validateLadder(rawLadder).length === 0 ? rawLadder : PRESET_LADDERS.standard;
+  // validateLadder takes unknown and never throws, so a hand-edited ladder of
+  // arbitrary JSON — [null], ["corner"], 7 — lands on the standard preset
+  // instead of crashing a background app the user cannot see.
+  const ladder: Ladder =
+    validateLadder(r.ladder).length === 0
+      ? (r.ladder as Ladder).map((stage) => ({ ...stage }))
+      : PRESET_LADDERS.standard.map((stage) => ({ ...stage }));
 
   const packIds = Array.isArray(r.activePackIds)
     ? (r.activePackIds as unknown[]).filter((s): s is string => typeof s === 'string')
@@ -1361,8 +1421,8 @@ export function normalizeConfig(raw: unknown): Config {
     cornerPosition: CORNERS.includes(r.cornerPosition as CornerPosition)
       ? (r.cornerPosition as CornerPosition)
       : d.cornerPosition,
-    activePackIds: packIds.length > 0 ? packIds : d.activePackIds,
-    customLines,
+    activePackIds: packIds.length > 0 ? [...packIds] : [...d.activePackIds],
+    customLines: [...customLines],
     autostart: typeof r.autostart === 'boolean' ? r.autostart : d.autostart,
     soundEnabled: typeof r.soundEnabled === 'boolean' ? r.soundEnabled : d.soundEnabled,
     dndUntil: typeof r.dndUntil === 'number' && Number.isFinite(r.dndUntil) ? r.dndUntil : null,
@@ -1680,11 +1740,23 @@ describe('popupBounds', () => {
     expect(popupBounds('fullscreen', workArea, 'bottom-right')).toEqual(workArea);
   });
 
-  it('never positions a popup off the left or top edge on a small display', () => {
+  it('keeps every edge inside a work area smaller than the popup', () => {
     const tiny: Rect = { x: 0, y: 0, width: 300, height: 200 };
-    const b = popupBounds('center', tiny, 'bottom-right');
-    expect(b.x).toBeGreaterThanOrEqual(0);
-    expect(b.y).toBeGreaterThanOrEqual(0);
+    for (const mode of ['corner', 'center'] as const) {
+      const b = popupBounds(mode, tiny, 'bottom-right');
+      expect(b.x).toBeGreaterThanOrEqual(tiny.x);
+      expect(b.y).toBeGreaterThanOrEqual(tiny.y);
+      expect(b.x + b.width).toBeLessThanOrEqual(tiny.x + tiny.width);
+      expect(b.y + b.height).toBeLessThanOrEqual(tiny.y + tiny.height);
+    }
+  });
+
+  it('returns a copy for fullscreen rather than aliasing the work area', () => {
+    const area: Rect = { x: 0, y: 40, width: 1920, height: 1000 };
+    const b = popupBounds('fullscreen', area, 'bottom-right');
+    expect(b).not.toBe(area);
+    b.width = 1;
+    expect(area.width).toBe(1920);
   });
 });
 ```
@@ -1710,6 +1782,10 @@ export const CORNER_SIZE = { width: 340, height: 150 } as const;
 export const CENTER_SIZE = { width: 520, height: 320 } as const;
 export const CORNER_MARGIN = 24;
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
 export function popupBounds(
   mode: WindowMode,
   workArea: Rect,
@@ -1719,17 +1795,29 @@ export function popupBounds(
     return { ...workArea };
   }
 
+  // Size is clamped before position. Clamping only x and y would keep the
+  // popup's top-left corner on screen while its right and bottom edges hung
+  // off it — a guard on two edges and silence on the other two.
+  const preferred = mode === 'center' ? CENTER_SIZE : CORNER_SIZE;
+  const width = Math.min(preferred.width, workArea.width);
+  const height = Math.min(preferred.height, workArea.height);
+
+  const minX = workArea.x;
+  const maxX = workArea.x + workArea.width - width;
+  const minY = workArea.y;
+  const maxY = workArea.y + workArea.height - height;
+
   if (mode === 'center') {
     return {
-      x: Math.max(workArea.x, workArea.x + Math.round((workArea.width - CENTER_SIZE.width) / 2)),
-      y: Math.max(workArea.y, workArea.y + Math.round((workArea.height - CENTER_SIZE.height) / 2)),
-      width: CENTER_SIZE.width,
-      height: CENTER_SIZE.height,
+      x: clamp(workArea.x + Math.round((workArea.width - width) / 2), minX, maxX),
+      y: clamp(workArea.y + Math.round((workArea.height - height) / 2), minY, maxY),
+      width,
+      height,
     };
   }
 
-  const right = workArea.x + workArea.width - CORNER_SIZE.width - CORNER_MARGIN;
-  const bottom = workArea.y + workArea.height - CORNER_SIZE.height - CORNER_MARGIN;
+  const right = workArea.x + workArea.width - width - CORNER_MARGIN;
+  const bottom = workArea.y + workArea.height - height - CORNER_MARGIN;
   const left = workArea.x + CORNER_MARGIN;
   const top = workArea.y + CORNER_MARGIN;
 
@@ -1737,10 +1825,10 @@ export function popupBounds(
   const y = corner === 'top-left' || corner === 'top-right' ? top : bottom;
 
   return {
-    x: Math.max(workArea.x, x),
-    y: Math.max(workArea.y, y),
-    width: CORNER_SIZE.width,
-    height: CORNER_SIZE.height,
+    x: clamp(x, minX, maxX),
+    y: clamp(y, minY, maxY),
+    width,
+    height,
   };
 }
 ```
@@ -1764,7 +1852,7 @@ git commit -m "feat: add popup window geometry for every escalation mode"
 **Files:**
 - Create: `src/preload/index.ts`
 - Create: `src/renderer/popup.html`
-- Create: `src/renderer/popup.tsx`
+- Create: `src/renderer/index.tsx`
 - Create: `src/renderer/Popup.tsx`
 - Create: `src/renderer/popup.css`
 
@@ -1778,6 +1866,8 @@ git commit -m "feat: add popup window geometry for every escalation mode"
     `popup:show` (main → renderer), `popup:drank`, `popup:snooze`, `popup:skip` (renderer → main).
 
 There are no unit tests in this task — it is browser UI with no decision logic. Its verification is the manual run in Task 8, and every value it displays comes from modules already tested in Tasks 1–6.
+
+**File naming:** the entry point is `index.tsx`, not `popup.tsx`, because `popup.tsx` and `Popup.tsx` differ only by case. NTFS and default APFS are both case-insensitive, so the two would be the same path on this dev machine *and* on the target MacBook — the second file written silently overwrites the first. Keep the names distinct in spelling, not just in case.
 
 - [ ] **Step 1: Create `src/preload/index.ts`**
 
@@ -1820,7 +1910,7 @@ export type WaterApi = typeof api;
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="./popup.tsx"></script>
+    <script type="module" src="./index.tsx"></script>
   </body>
 </html>
 ```
@@ -2086,7 +2176,7 @@ export default function Popup(): JSX.Element {
 }
 ```
 
-- [ ] **Step 5: Create `src/renderer/popup.tsx`**
+- [ ] **Step 5: Create `src/renderer/index.tsx`**
 
 ```tsx
 import { StrictMode } from 'react';
@@ -2159,12 +2249,24 @@ import { DEFAULT_CONFIG, normalizeConfig } from '../core/config.js';
 const store = new Store<{ config: unknown }>({ name: 'config' });
 
 export function loadConfig(): Config {
-  return normalizeConfig(store.get('config', DEFAULT_CONFIG));
+  try {
+    return normalizeConfig(store.get('config', DEFAULT_CONFIG));
+  } catch (error) {
+    // This app has no window to show an error in. Every I/O path here
+    // degrades to a working default rather than throwing into a tick handler
+    // and killing a process the user cannot see die.
+    console.error('failed to read config, falling back to defaults:', error);
+    return normalizeConfig({});
+  }
 }
 
 export function saveConfig(patch: Partial<Config>): Config {
   const next = normalizeConfig({ ...loadConfig(), ...patch });
-  store.set('config', next);
+  try {
+    store.set('config', next);
+  } catch (error) {
+    console.error('failed to persist config, continuing in memory:', error);
+  }
   return next;
 }
 ```
@@ -2183,13 +2285,24 @@ function logPath(): string {
 }
 
 export function appendEvent(event: LogEvent): void {
-  appendFileSync(logPath(), serializeEvent(event), 'utf8');
+  try {
+    appendFileSync(logPath(), serializeEvent(event), 'utf8');
+  } catch (error) {
+    // Losing one line of history is survivable. Throwing out of the IPC
+    // handler that just recorded a drink is not.
+    console.error('failed to append intake event:', error);
+  }
 }
 
 export function readEvents(): LogEvent[] {
-  const path = logPath();
-  if (!existsSync(path)) return [];
-  return parseLog(readFileSync(path, 'utf8'));
+  try {
+    const path = logPath();
+    if (!existsSync(path)) return [];
+    return parseLog(readFileSync(path, 'utf8'));
+  } catch (error) {
+    console.error('failed to read intake log:', error);
+    return [];
+  }
 }
 ```
 
@@ -2431,6 +2544,11 @@ export const actions = {
     applyEffects(onSkip(state, now, schedulerConfig()));
   },
   snooze(minutes: number): void {
+    // The renderer is first-party and sandboxed, but this is the main
+    // process's only unchecked external input, and a NaN would set nextDueAt
+    // to NaN — every later comparison false, the reminder silently never
+    // firing again for the life of the process.
+    if (!Number.isFinite(minutes) || minutes <= 0) return;
     const now = Date.now();
     appendEvent({ ts: now, type: 'snooze', minutes });
     applyEffects(onSnooze(state, now, minutes, schedulerConfig()));
@@ -2530,7 +2648,7 @@ git commit -m "feat: wire scheduler, popups, and intake log into the main proces
 
 **Files:**
 - Create: `scripts/make-icons.mjs`
-- Create: `resources/icon-16.png`, `resources/icon-32.png`, `resources/icon-256.png` (generated by the script)
+- Create: `resources/icon-16.png`, `resources/icon-32.png`, `resources/icon-256.png`, `resources/icon-512.png`, `resources/icon-1024.png` (generated by the script)
 - Create: `src/main/tray.ts`
 - Modify: `src/main/index.ts` — construct the tray after the popup manager, and honour `config.autostart`
 - Modify: `package.json` — add the `icons` script
@@ -2582,14 +2700,34 @@ function chunk(type, data) {
 function dropletAlpha(x, y, size) {
   const nx = (x + 0.5) / size - 0.5;
   const ny = (y + 0.5) / size - 0.5;
-  const cy = ny - 0.14;
-  const circle = Math.hypot(nx, cy) - 0.3;
-  // Cone opening downward from the top point.
-  const cone = Math.abs(nx) * 1.9 + (ny + 0.42) * -1 - 0.0;
+
+  const R = 0.28; // circle radius
+  const cy = 0.06; // circle centre y
+  const topY = -0.36; // apex y, above the circle
+
+  const circle = Math.hypot(nx, ny - cy) - R;
+
+  // Cone: bounded taper from the apex point down to the circle's width,
+  // so the two pieces meet flush instead of the cone running unbounded.
+  let cone;
+  if (ny <= topY) {
+    cone = Math.hypot(nx, topY - ny);
+  } else if (ny >= cy) {
+    cone = 1; // below the taper zone; the circle alone decides here
+  } else {
+    const t = (ny - topY) / (cy - topY); // 0 at apex .. 1 at the circle centre
+    cone = Math.abs(nx) - R * t;
+  }
+
   const d = Math.min(circle, cone);
-  if (d <= -0.02) return 255;
-  if (d >= 0.02) return 0;
-  return Math.round(255 * (1 - (d + 0.02) / 0.04));
+
+  // Anti-alias band scaled to the pixel grid. A fixed band in normalized
+  // units is under a pixel at 16px and about 40px at 1024px, which reads as
+  // a glow rather than a clean edge.
+  const aa = 1.2 / size;
+  if (d <= -aa) return 255;
+  if (d >= aa) return 0;
+  return Math.round(255 * (1 - (d + aa) / (2 * aa)));
 }
 
 function makePng(size) {
@@ -2624,7 +2762,7 @@ function makePng(size) {
 }
 
 mkdirSync(OUT_DIR, { recursive: true });
-for (const size of [16, 32, 256]) {
+for (const size of [16, 32, 256, 512, 1024]) {
   const file = join(OUT_DIR, `icon-${size}.png`);
   writeFileSync(file, makePng(size));
   console.log(`wrote ${file}`);
@@ -2640,7 +2778,7 @@ Add to `"scripts"`:
 ```
 
 Run: `npm run icons`
-Expected: three `wrote ...` lines. Open `resources/icon-256.png` and confirm it looks like a blue droplet on a transparent background. If the shape is wrong, adjust the constants in `dropletAlpha` and re-run — this is the only step in the plan whose output is judged by eye.
+Expected: five `wrote ...` lines. Open `resources/icon-256.png` and confirm it looks like a blue droplet on a transparent background. If the shape is wrong, adjust the constants in `dropletAlpha` and re-run — this is the only step in the plan whose output is judged by eye.
 
 - [ ] **Step 3: Create `src/main/tray.ts`**
 
@@ -2648,6 +2786,7 @@ Expected: three `wrote ...` lines. Open `resources/icon-256.png` and confirm it 
 import { Menu, Tray, app, nativeImage } from 'electron';
 import { join } from 'node:path';
 import type { Config } from '../shared/types.js';
+import { addLocalDays } from '../core/stats.js';
 
 export interface TrayDeps {
   nextDueAt(): number;
@@ -2676,19 +2815,11 @@ function countdownLabel(deps: TrayDeps): string {
   return `Next drink in ${Math.max(1, Math.round(remaining / MIN))} min`;
 }
 
-function startOfTomorrow(): number {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
 export function createTray(deps: TrayDeps): { refresh(): void; destroy(): void } {
   const image = nativeImage.createFromPath(iconPath());
   image.setTemplateImage(process.platform === 'darwin');
 
   const tray = new Tray(image);
-  tray.setToolTip('Water Reminder');
 
   function refresh(): void {
     const config = deps.config();
@@ -2703,7 +2834,10 @@ export function createTray(deps: TrayDeps): { refresh(): void; destroy(): void }
         { type: 'separator' },
         { label: 'Pause 30 minutes', click: () => deps.setDnd(Date.now() + 30 * MIN) },
         { label: 'Pause 1 hour', click: () => deps.setDnd(Date.now() + 60 * MIN) },
-        { label: 'Pause until tomorrow', click: () => deps.setDnd(startOfTomorrow()) },
+        // addLocalDays lands on the next local midnight and is already covered
+        // by the core's tests — "until tomorrow" is a real rule with rollover
+        // and DST edges, so it does not get a private copy in the view layer.
+        { label: 'Pause until tomorrow', click: () => deps.setDnd(addLocalDays(Date.now(), 1)) },
         { label: 'Resume reminders', enabled: paused, click: () => deps.setDnd(null) },
         { type: 'separator' },
         { label: 'Settings…', click: () => deps.openSettings() },
@@ -2748,7 +2882,12 @@ Inside `applyEffects`, refresh the tray after the effect loop so the countdown t
 Inside the `app.whenReady()` callback, after `state = createInitialState(...)` and before `startLoop()`:
 
 ```ts
-    app.setLoginItemSettings({ openAtLogin: config.autostart, args: ['--hidden'] });
+    // Packaged builds only. In dev, process.execPath is node_modules' bare
+    // electron.exe with no app path, so registering it means every login
+    // launches Electron's default welcome window instead of this app.
+    if (app.isPackaged) {
+      app.setLoginItemSettings({ openAtLogin: config.autostart, args: ['--hidden'] });
+    }
 
     tray = createTray({
       nextDueAt: () => actions.nextDueAt(),
@@ -2760,6 +2899,10 @@ Inside the `app.whenReady()` callback, after `state = createInitialState(...)` a
         // Phase 3 opens the settings window here. Until then, edit config.json.
         console.log('Settings live in config.json until Phase 3.');
       },
+    });
+
+    app.on('before-quit', () => {
+      tray?.destroy();
     });
 ```
 
@@ -2814,12 +2957,12 @@ Add this top-level `"build"` key:
     { "from": "packs", "to": "packs" },
     { "from": "resources", "to": "resources" }
   ],
-  "win": { "target": ["nsis"], "icon": "resources/icon-256.png" },
+  "win": { "target": ["nsis"], "icon": "resources/icon-1024.png" },
   "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
   "mac": {
     "target": ["dmg"],
     "category": "public.app-category.healthcare-fitness",
-    "icon": "resources/icon-256.png",
+    "icon": "resources/icon-1024.png",
     "identity": null,
     "extendInfo": { "LSUIElement": true }
   }
@@ -2827,6 +2970,8 @@ Add this top-level `"build"` key:
 ```
 
 `LSUIElement: true` is what keeps the app out of the macOS Dock and app switcher. `identity: null` produces an ad-hoc signed build — fine for personal use, and the reason first launch on the Mac needs right-click → Open.
+
+The `icon` fields point at the 1024px source, not the tray's 256px one: electron-builder's accepted minimum for a macOS icon source is 512×512, so a 256px input either fails conversion or yields a blurry app icon and DMG badge. The tray keeps using 16/32 — those are the sizes a menu bar actually wants.
 
 - [ ] **Step 2: Build the Windows installer**
 
