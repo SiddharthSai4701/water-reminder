@@ -59,6 +59,10 @@ Until the Phase 3 settings UI lands, edit `config.json` in:
 
 ## Docs
 
+- **Status and backlog: `docs/status-and-backlog.md`** — start here. Where
+  each phase stands, what is still unverified on macOS, every deferred
+  review finding, and why Tauri was investigated and rejected.
 - Design spec: `docs/superpowers/specs/2026-08-24-water-reminder-design.md`
 - Phase 1 plan: `docs/superpowers/plans/2026-08-24-water-reminder-phase-1.md`
 - Manual verification: `docs/manual-verification.md`
+- Building on the Mac: `docs/building-on-mac.md`
