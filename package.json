@@ -81,7 +81,10 @@
         "LSUIElement": true
       }
     },
-    "afterPack": "scripts/adhoc-sign.cjs"
+    "afterPack": "scripts/adhoc-sign.cjs",
+    "electronLanguages": [
+      "en-US"
+    ]
   },
   "author": "Siddharth Vijay Sai"
 }
