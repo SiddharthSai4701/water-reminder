@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { CONFIG_VERSION, DEFAULT_CONFIG, ladderForPreset, normalizeConfig } from '../../src/core/config.js';
 import { PRESET_LADDERS, validateLadder } from '../../src/core/ladder.js';
+import { isWithinWorkHours } from '../../src/core/scheduler.js';
 
 describe('DEFAULT_CONFIG', () => {
   it('uses the standard preset ladder', () => {
@@ -124,5 +125,26 @@ describe('ladderForPreset', () => {
   it('returns the custom ladder for the custom preset', () => {
     const custom = [{ mode: 'corner' as const, delayMinutes: 0 }];
     expect(ladderForPreset('custom', custom)).toEqual(custom);
+  });
+});
+
+describe('default work window', () => {
+  it('covers every day of the week', () => {
+    // Sun 2026-08-23 through Sat 2026-08-29.
+    for (let day = 23; day <= 29; day++) {
+      expect(DEFAULT_CONFIG.schedule.workDays).toContain(new Date(2026, 7, day).getDay());
+    }
+  });
+
+  it('covers every minute of the day', () => {
+    const cfg = {
+      ...DEFAULT_CONFIG.schedule,
+      intervalMinutes: DEFAULT_CONFIG.schedule.intervalMinutes,
+      ladder: DEFAULT_CONFIG.ladder,
+    };
+    // Midnight, and the last minute before it. A window ending at 23:59
+    // would leave that final minute a silent hold.
+    expect(isWithinWorkHours(new Date(2026, 7, 24, 0, 0).getTime(), cfg)).toBe(true);
+    expect(isWithinWorkHours(new Date(2026, 7, 24, 23, 59).getTime(), cfg)).toBe(true);
   });
 });

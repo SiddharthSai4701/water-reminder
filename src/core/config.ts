@@ -7,9 +7,13 @@ export const DEFAULT_CONFIG: Config = {
   version: CONFIG_VERSION,
   schedule: {
     intervalMinutes: 30,
-    workStartMinute: 9 * 60,
-    workEndMinute: 18 * 60,
-    workDays: [1, 2, 3, 4, 5],
+    // 24/7 by default. 1440 rather than 1439 because isWithinWorkHours
+    // compares with `<`, so 23:59 would leave the last minute a silent hold.
+    // Nothing in the default schedule ever holds a reminder; pausing is the
+    // only thing that stops one.
+    workStartMinute: 0,
+    workEndMinute: 24 * 60,
+    workDays: [0, 1, 2, 3, 4, 5, 6],
   },
   preset: 'standard',
   ladder: PRESET_LADDERS.standard,

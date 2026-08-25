@@ -74,6 +74,23 @@ triage, and are listed here so they are not rediscovered from scratch.
   `r.version` and branch, even if the only branch today is identity.
   **Do this before shipping any config change.**
 
+### Fixed after Phase 1
+
+- **The tray reported `Due now` during a work-hours hold** (v0.1.4). Outside
+  work hours the scheduler holds in `idle` with an overdue `nextDueAt` —
+  correct, and covered by a test — but `countdownLabel` only compared
+  `nextDueAt` against the clock, so every evening after 18:00 and all
+  weekend the menu claimed a reminder was due while nothing was on screen.
+  Indistinguishable from the app having lost a popup, and reported as such.
+  `countdownLabel` now lives in `src/core/labels.ts`, asks the same
+  work-hours question the scheduler asks, and names the hold. That also
+  starts the `src/core` extraction listed under *Architecture* below.
+
+  The underlying complaint is real and remains: the schedule is only
+  editable by hand, and **an always-on schedule cannot be expressed at all**
+  — `normalizeSchedule` requires `workEndMinute > workStartMinute` and
+  rejects overnight windows. Phase 3a fixes both.
+
 ### Correctness, low reachability
 
 - **`mlOnDay` does not type-check `ml`.** It sums `e.ml ?? 0`; a hand-edited
@@ -122,7 +139,8 @@ triage, and are listed here so they are not rediscovered from scratch.
   recommended extracting the last decisions out of the shell —
   `countdownLabel`, the payload builder in `applyEffects`, and the
   mode→focus/level policy in `windows.ts` — into `src/core/` where they can
-  be unit-tested. That would finish the architectural split rather than
+  be unit-tested. `countdownLabel` moved in v0.1.4 because a bug forced it;
+  the payload builder and the window policy have not. That would finish the architectural split rather than
   leaving it 90% done. Deferred because it is a refactor, not a fix, and
   landing it beside a Critical fix invites regressions.
 
@@ -184,7 +202,11 @@ Changed from the original spec during Mac testing, at the user's request:
 - Interval: **30 minutes** (was 45)
 - Daily goal: **4 L** (was 2.5 L)
 - Glass: 250 ml
-- Work hours: 09:00–18:00, Mon–Fri
+- Work hours: **24/7** — 00:00–24:00, all seven days. Changed in v0.1.4: the
+  09:00–18:00 Mon–Fri default meant reminders stopped every evening, which
+  is what the "Due now" report turned out to be. The schedule stays in the
+  config and becomes editable in Phase 3a; the default simply no longer
+  holds anything.
 - Ladder: Standard — corner @ 0, centered @ +3m, fullscreen @ +5m
   (absolute 0m / 3m / 8m)
 
