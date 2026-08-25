@@ -63,8 +63,11 @@ body {
 
 .line {
   /* min-width:0 lets a flex child actually wrap instead of being squeezed
-     to its longest word. */
+     to its longest word. min-height:0 lets it shrink in the column layout,
+     so if anything overflows it is the message that gives way, never the
+     buttons — losing the buttons is what makes the popup unusable. */
   min-width: 0;
+  min-height: 0;
   font-size: 16px;
   line-height: 1.35;
   font-weight: 500;
@@ -103,6 +106,12 @@ body {
   /* Never shrink: the buttons are the point of the card, and squeezing
      them is what broke the corner layout. */
   flex: none;
+}
+
+.shell.corner {
+  /* Just enough for the card's drop shadow. The card carries its own
+     padding; doubling it here is what clipped the buttons. */
+  padding: 8px;
 }
 
 .shell.corner .ring {
