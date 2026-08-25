@@ -55,10 +55,10 @@ export default function Popup(): JSX.Element {
     <div className={`shell ${payload.mode}`}>
       <div className="card">
         <Ring pct={payload.goalPct} />
-        <div className="line">
-          {payload.line}
-          <div className="meta">{`${payload.glasses} glasses today`}</div>
-        </div>
+        {/* Siblings, not nested: the corner card line-clamps .line, which
+            would otherwise clip the glass count along with the message. */}
+        <div className="line">{payload.line}</div>
+        <div className="meta">{`${payload.glasses} glasses today`}</div>
         <div className="actions">
           <button className="primary" onClick={() => window.water.drank()}>
             Drank it

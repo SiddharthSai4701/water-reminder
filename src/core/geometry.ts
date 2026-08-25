@@ -7,7 +7,10 @@ export interface Rect {
   height: number;
 }
 
-export const CORNER_SIZE = { width: 340, height: 150 } as const;
+// Sized to fit a two-line message plus the action row without clipping.
+// The three buttons alone need ~226px, so a narrower card squeezes the
+// message column to nothing and wraps it one word per line.
+export const CORNER_SIZE = { width: 380, height: 190 } as const;
 export const CENTER_SIZE = { width: 520, height: 320 } as const;
 export const CORNER_MARGIN = 24;
 
