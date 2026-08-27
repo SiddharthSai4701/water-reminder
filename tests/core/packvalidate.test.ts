@@ -30,4 +30,17 @@ describe('validatePackLines', () => {
     const issues = validatePackLines([{ text: 'One.' }], { minLines: 60 });
     expect(issues).toEqual([{ message: 'this pack needs at least 60 lines' }]);
   });
+
+  it('reports a whitespace-only line as blank', () => {
+    const issues = validatePackLines([{ text: '  ' }]);
+    expect(issues).toEqual([{ line: 1, message: 'blank line' }]);
+  });
+
+  it('reports two blank lines as blank, not as a duplicate', () => {
+    const issues = validatePackLines([{ text: '  ' }, { text: '  ' }]);
+    expect(issues).toEqual([
+      { line: 1, message: 'blank line' },
+      { line: 2, message: 'blank line' },
+    ]);
+  });
 });
