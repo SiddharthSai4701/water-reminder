@@ -7,6 +7,7 @@ during it lived in a scratch workspace that was deleted at merge. Everything
 below is the part that was not otherwise written down. Read it alongside:
 
 - `docs/superpowers/specs/2026-08-24-water-reminder-design.md` — the design
+- `docs/superpowers/specs/2026-08-27-water-reminder-phase-3a-design.md` — Phase 3a
 - `docs/superpowers/plans/2026-08-24-water-reminder-phase-1.md` — how Phase 1 was built
 - `docs/manual-verification.md` — the per-OS checklist
 - `docs/building-on-mac.md` — building the `.dmg`
@@ -17,7 +18,8 @@ below is the part that was not otherwise written down. Read it alongside:
 |---|---|
 | 1 — core loop, tray, escalation | **Done.** Merged to `master`, 104 tests. |
 | 2 — macOS verification | **In progress.** See below. |
-| 3 — personalization | Not started. Settings UI, themes, mascot, sound, stats. |
+| 3a — settings, config, packs | **Specced.** See the Phase 3a design. |
+| 3b — themes, mascot, sound, stats | Not started. Specced after 3a is in use. |
 | 4 — smart pause | Not started. Mic/meeting/fullscreen/idle detection. |
 
 ## Phase 2: what has and has not been verified on the Mac
@@ -26,6 +28,14 @@ The app is installed and running on the MacBook from the CI-built `.dmg`.
 
 Verified working:
 
+- [x] **Fullscreen stage floats above a genuine fullscreen app, at every
+      stage of the ladder** (2026-08-27, on v0.1.4). This was the
+      highest-risk item in the project — the loudest rung of the ladder and
+      the app's core promise — and it works. The `screen-saver` window level
+      plus `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })`
+      is the combination that does it, so treat both as load-bearing.
+      It is also the behaviour a Tauri port could not safely reproduce; see
+      the Tauri section below, which stands.
 - [x] Menu-bar icon renders, and is crisp after shipping `@2x`/`@3x` variants
 - [x] No Dock icon
 - [x] Corner card renders correctly and is legible
@@ -35,12 +45,6 @@ Verified working:
 Still unverified, and **not checkable from Windows** — these are the reason
 Phase 2 exists:
 
-- [ ] Fullscreen stage floats **above a genuine fullscreen app** (try a
-      fullscreen browser or Keynote) rather than switching Spaces to reach
-      it. This depends on the `screen-saver` window level plus
-      `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })`.
-      **Highest-risk item in the project** — it is the loudest rung of the
-      ladder and the app's core promise.
 - [ ] App absent from the Cmd-Tab switcher
 - [ ] Corner card appears on the Space you are currently on, not only the
       one it was created on
