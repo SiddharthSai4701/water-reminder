@@ -33,6 +33,7 @@ let state: SchedulerState;
 let recent: string[] = [];
 let popups: PopupManager;
 let tray: ReturnType<typeof createTray> | null = null;
+let pendingCustomLines: string[] = [];
 
 function schedulerConfig(): SchedulerConfig {
   return {
@@ -112,8 +113,10 @@ export const actions = {
     applyEffects(setDnd(state, until, Date.now(), schedulerConfig()));
   },
   refreshConfig(): void {
-    config = loadConfig();
-    packs = loadPacks(config.activePackIds, []);
+    const loaded = loadConfig();
+    config = loaded.config;
+    pendingCustomLines = loaded.pendingCustomLines;
+    packs = loadPacks(config.activePackIds, pendingCustomLines);
   },
   nextDueAt(): number {
     return state.nextDueAt;
@@ -141,8 +144,10 @@ if (!gotLock) {
   app.quit();
 } else {
   void app.whenReady().then(() => {
-    config = loadConfig();
-    packs = loadPacks(config.activePackIds, []);
+    const loaded = loadConfig();
+    config = loaded.config;
+    pendingCustomLines = loaded.pendingCustomLines;
+    packs = loadPacks(config.activePackIds, pendingCustomLines);
     popups = new PopupManager();
     state = createInitialState(Date.now(), schedulerConfig());
 
