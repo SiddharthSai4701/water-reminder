@@ -46,6 +46,36 @@ describe('parsePackText', () => {
     expect(errors).toHaveLength(1);
   });
 
+  it('reports a trailing comma rather than injecting a phantom stage 0', () => {
+    const { lines, errors } = parsePackText('[2,] Two.');
+    expect(lines).toEqual([]);
+    expect(errors).toEqual([{ line: 1, message: 'stage tag must be numbers, e.g. [0] or [0,1]' }]);
+  });
+
+  it('reports a leading comma rather than injecting a phantom stage 0', () => {
+    const { lines, errors } = parsePackText('[,2] Two.');
+    expect(lines).toEqual([]);
+    expect(errors).toEqual([{ line: 1, message: 'stage tag must be numbers, e.g. [0] or [0,1]' }]);
+  });
+
+  it('reports a double comma rather than injecting a phantom stage 0', () => {
+    const { lines, errors } = parsePackText('[2,,3] Two.');
+    expect(lines).toEqual([]);
+    expect(errors).toEqual([{ line: 1, message: 'stage tag must be numbers, e.g. [0] or [0,1]' }]);
+  });
+
+  it('reports a negative stage index', () => {
+    const { lines, errors } = parsePackText('[-1] Two.');
+    expect(lines).toEqual([]);
+    expect(errors).toEqual([{ line: 1, message: 'stage tag must be numbers, e.g. [0] or [0,1]' }]);
+  });
+
+  it('reports a non-integer stage index', () => {
+    const { lines, errors } = parsePackText('[1.5] Two.');
+    expect(lines).toEqual([]);
+    expect(errors).toEqual([{ line: 1, message: 'stage tag must be numbers, e.g. [0] or [0,1]' }]);
+  });
+
   it('reports a tagged line with no text', () => {
     const { errors } = parsePackText('[1]   ');
     expect(errors).toEqual([{ line: 1, message: 'line has a stage tag but no text' }]);

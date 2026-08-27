@@ -51,7 +51,11 @@ export function parsePackText(text: string): ParsedPackText {
     const parts = tag.split(',').map((p) => p.trim());
     const stage = parts.map((p) => Number(p));
 
-    if (tag.trim().length === 0 || stage.some((n) => !Number.isInteger(n) || n < 0)) {
+    if (
+      tag.trim().length === 0 ||
+      parts.some((p) => p.length === 0) ||
+      stage.some((n) => !Number.isInteger(n) || n < 0)
+    ) {
       errors.push({ line: lineNumber, message: 'stage tag must be numbers, e.g. [0] or [0,1]' });
       return;
     }
