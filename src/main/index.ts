@@ -2,6 +2,7 @@ import { app, ipcMain, powerMonitor } from 'electron';
 import type { Config, Pack, PopupPayload } from '../shared/types.js';
 import {
   createInitialState,
+  onConfigChange,
   onDrank,
   onSkip,
   onSnooze,
@@ -22,6 +23,8 @@ import {
 import { loadConfig, saveConfig } from './config.js';
 import { appendEvent, readEvents } from './log.js';
 import { loadPacks } from './packs.js';
+import { registerSettingsIpc } from './settings-ipc.js';
+import { SettingsWindow } from './settings-window.js';
 import { createTray } from './tray.js';
 import { PopupManager } from './windows.js';
 
@@ -32,6 +35,7 @@ let packs: Pack[] = [];
 let state: SchedulerState;
 let recent: string[] = [];
 let popups: PopupManager;
+let settings: SettingsWindow | null = null;
 let tray: ReturnType<typeof createTray> | null = null;
 let pendingCustomLines: string[] = [];
 let persistedNextDueAt: number | null = null;
@@ -120,12 +124,14 @@ export const actions = {
   setDnd(until: number | null): void {
     config = saveConfig(config, { dndUntil: until });
     applyEffects(setDnd(state, until, Date.now(), schedulerConfig()));
+    settings?.broadcast(config);
   },
   refreshConfig(): void {
     const loaded = loadConfig();
     config = loaded.config;
     pendingCustomLines = loaded.pendingCustomLines;
     packs = loadPacks(config.activePackIds, pendingCustomLines);
+    settings?.broadcast(config);
   },
   nextDueAt(): number {
     return state.nextDueAt;
@@ -158,6 +164,7 @@ if (!gotLock) {
     pendingCustomLines = loaded.pendingCustomLines;
     packs = loadPacks(config.activePackIds, pendingCustomLines);
     popups = new PopupManager();
+    settings = new SettingsWindow();
     persistedNextDueAt = config.nextDueAt;
     state = createInitialState(Date.now(), schedulerConfig(), config.nextDueAt);
 
@@ -174,9 +181,27 @@ if (!gotLock) {
       drank: () => actions.drank(),
       setDnd: (until) => actions.setDnd(until),
       reloadConfig: () => actions.refreshConfig(),
-      openSettings: () => {
-        // Phase 3 opens the settings window here. Until then, edit config.json.
-        console.log('Settings live in config.json until Phase 3.');
+      openSettings: () => settings?.open(),
+    });
+
+    registerSettingsIpc({
+      config: () => config,
+      patchConfig: (partial) => {
+        // Captured before `config` is reassigned: onConfigChange compares the
+        // old scheduler config against the new one, and passing the same
+        // object twice makes every interval change silently no-op.
+        const previous = schedulerConfig();
+        config = saveConfig(config, partial);
+        packs = loadPacks(config.activePackIds, pendingCustomLines);
+        applyEffects(onConfigChange(state, previous, schedulerConfig(), Date.now()));
+        tray?.refresh();
+        settings?.broadcast(config);
+        // The normalized config, not the patch: a clamped value has to be
+        // visible in the window immediately rather than silently diverging.
+        return config;
+      },
+      reloadPacks: () => {
+        packs = loadPacks(config.activePackIds, pendingCustomLines);
       },
     });
 
@@ -185,6 +210,7 @@ if (!gotLock) {
       // Alt+F4. Quitting is the one legitimate close, and without this the
       // veto would make the app unquittable while a reminder is up.
       popups.destroy();
+      settings?.destroy();
       tray?.destroy();
     });
 

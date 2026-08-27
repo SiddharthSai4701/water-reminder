@@ -71,3 +71,18 @@ export interface PopupPayload {
   goalPct: number;
   defaultSnoozeMinutes: number;
 }
+
+export interface PackSummary {
+  id: string;
+  name: string;
+  lineCount: number;
+  active: boolean;
+  /** A user file exists for this id. Shipped packs start false. */
+  customised: boolean;
+  /** Present when the file failed to load; the pane shows it verbatim. */
+  error?: string;
+}
+
+export type PackWriteResult =
+  | { ok: true; packs: PackSummary[] }
+  | { ok: false; errors: { line?: number; message: string }[] };

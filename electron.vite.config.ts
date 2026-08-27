@@ -9,13 +9,25 @@ export default defineConfig({
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
-    build: { rollupOptions: { input: resolve(__dirname, 'src/preload/index.ts') } },
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve(__dirname, 'src/preload/index.ts'),
+          settings: resolve(__dirname, 'src/preload/settings.ts'),
+        },
+      },
+    },
   },
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
     plugins: [react()],
     build: {
-      rollupOptions: { input: resolve(__dirname, 'src/renderer/popup.html') },
+      rollupOptions: {
+        input: {
+          popup: resolve(__dirname, 'src/renderer/popup.html'),
+          settings: resolve(__dirname, 'src/renderer/settings.html'),
+        },
+      },
     },
   },
 });
