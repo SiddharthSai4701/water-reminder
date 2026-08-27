@@ -20,22 +20,32 @@ export function loadConfig(): LoadedConfig {
     const { raw, effects } = migrateConfig(store.get('config', DEFAULT_CONFIG));
     const config = normalizeConfig(raw);
 
-    let migrated = true;
+    let canPersist = true;
     let pendingCustomLines: string[] = [];
 
     if (effects.writeCustomPack !== undefined) {
       const lines = effects.writeCustomPack;
-      migrated = writeUserPack('custom', {
+      canPersist = writeUserPack('custom', {
         id: 'custom',
         name: 'Custom',
         lines: lines.map((text) => ({ text })),
       });
-      if (!migrated) pendingCustomLines = lines;
+      if (!canPersist) pendingCustomLines = lines;
     }
 
     // The version stamp is what records that the migration happened, so a
     // failed effect must not be persisted or it can never be retried.
-    if (migrated) store.set('config', config);
+    if (canPersist) {
+      try {
+        store.set('config', config);
+      } catch (error) {
+        // Only the persist failed; the migrated config in hand is still
+        // correct and the file on disk is untouched. Keep using it for this
+        // session instead of falling back to defaults, and let the version
+        // stamp being stale drive a retry on the next launch.
+        console.error('failed to persist the migrated config:', error);
+      }
+    }
 
     return { config, pendingCustomLines };
   } catch (error) {
