@@ -50,10 +50,11 @@ function normalizeSchedule(raw: unknown): Schedule {
     : d.workDays;
   const start = clampNumber(r.workStartMinute, 0, 1439, d.workStartMinute);
   const end = clampNumber(r.workEndMinute, 1, 1440, d.workEndMinute);
-  // An empty or inverted window would mean isWithinWorkHours is false for
-  // every instant and the app silently never fires again. Overnight windows
-  // are not supported yet, so fall back rather than accept one.
-  const validWindow = end > start;
+  // A window whose start equals its end is empty, and isWithinWorkHours
+  // would be false for every instant — the app silently never fires again.
+  // A window whose end is *before* its start is an overnight window and is
+  // supported.
+  const validWindow = end !== start;
 
   return {
     intervalMinutes: clampNumber(r.intervalMinutes, 1, 600, d.intervalMinutes),

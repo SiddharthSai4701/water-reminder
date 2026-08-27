@@ -211,6 +211,29 @@ describe('work hours and sleep', () => {
   });
 });
 
+describe('overnight work windows', () => {
+  const night = { workStartMinute: 22 * 60, workEndMinute: 2 * 60, workDays: [0, 1, 2, 3, 4, 5, 6] };
+
+  it('is true late in the evening', () => {
+    expect(isWithinWorkHours(new Date(2026, 7, 24, 23, 30).getTime(), night)).toBe(true);
+  });
+
+  it('is true in the small hours', () => {
+    expect(isWithinWorkHours(new Date(2026, 7, 24, 1, 30).getTime(), night)).toBe(true);
+  });
+
+  it('is false in the afternoon', () => {
+    expect(isWithinWorkHours(new Date(2026, 7, 24, 15, 0).getTime(), night)).toBe(false);
+  });
+
+  it('evaluates workDays against the day the minute falls on', () => {
+    // Monday only. Tuesday 01:00 is not inside Monday's overnight window.
+    const mondayOnly = { ...night, workDays: [1] };
+    expect(isWithinWorkHours(new Date(2026, 7, 24, 23, 30).getTime(), mondayOnly)).toBe(true);
+    expect(isWithinWorkHours(new Date(2026, 7, 25, 1, 0).getTime(), mondayOnly)).toBe(false);
+  });
+});
+
 describe('persisted nextDueAt', () => {
   it('adopts a future value instead of re-arming', () => {
     const now = MONDAY_10AM;

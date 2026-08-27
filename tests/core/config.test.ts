@@ -97,15 +97,6 @@ describe('normalizeConfig', () => {
     );
   });
 
-  it('rejects an empty or inverted work-hours window', () => {
-    const overnight = normalizeConfig({ schedule: { workStartMinute: 1320, workEndMinute: 360 } });
-    expect(overnight.schedule.workStartMinute).toBe(DEFAULT_CONFIG.schedule.workStartMinute);
-    expect(overnight.schedule.workEndMinute).toBe(DEFAULT_CONFIG.schedule.workEndMinute);
-
-    const empty = normalizeConfig({ schedule: { workStartMinute: 600, workEndMinute: 600 } });
-    expect(empty.schedule.workEndMinute).toBe(DEFAULT_CONFIG.schedule.workEndMinute);
-  });
-
   it('shares no array references with the defaults', () => {
     const a = normalizeConfig({});
     const b = normalizeConfig({});
@@ -123,6 +114,20 @@ describe('normalizeConfig', () => {
 
   it('stamps the current config version', () => {
     expect(normalizeConfig({ version: 1 }).version).toBe(CONFIG_VERSION);
+  });
+});
+
+describe('normalizeSchedule window validation', () => {
+  it('accepts an overnight window', () => {
+    const c = normalizeConfig({ schedule: { workStartMinute: 1320, workEndMinute: 120 } });
+    expect(c.schedule.workStartMinute).toBe(1320);
+    expect(c.schedule.workEndMinute).toBe(120);
+  });
+
+  it('rejects an empty window where start equals end', () => {
+    const c = normalizeConfig({ schedule: { workStartMinute: 600, workEndMinute: 600 } });
+    expect(c.schedule.workStartMinute).toBe(DEFAULT_CONFIG.schedule.workStartMinute);
+    expect(c.schedule.workEndMinute).toBe(DEFAULT_CONFIG.schedule.workEndMinute);
   });
 });
 

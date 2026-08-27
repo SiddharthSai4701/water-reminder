@@ -40,6 +40,17 @@ describe('nextWorkWindowStart', () => {
   });
 });
 
+describe('nextWorkWindowStart with a wrapping window', () => {
+  const night = { workStartMinute: 22 * 60, workEndMinute: 2 * 60, workDays: [1] };
+
+  it('opens at midnight on the next listed day', () => {
+    // Saturday: not a work day. The next Monday minute inside a wrapping
+    // window is 00:00, not 22:00.
+    const saturday = new Date(2026, 7, 29, 12, 0).getTime();
+    expect(nextWorkWindowStart(saturday, night)).toBe(new Date(2026, 7, 31, 0, 0).getTime());
+  });
+});
+
 describe('countdownLabel', () => {
   it('reports a pause', () => {
     const state = { ...idle(mon(11)), phase: 'paused' as const };

@@ -50,7 +50,14 @@ export function isWithinWorkHours(now: number, cfg: WorkHours): boolean {
   const d = new Date(now);
   if (!cfg.workDays.includes(d.getDay())) return false;
   const minuteOfDay = d.getHours() * 60 + d.getMinutes();
-  return minuteOfDay >= cfg.workStartMinute && minuteOfDay < cfg.workEndMinute;
+
+  // An overnight window is a window on each of its listed days, not a window
+  // that drags the previous day's membership across midnight. "Reminders on
+  // Wednesday" then means what a person expects it to mean.
+  const wraps = cfg.workEndMinute <= cfg.workStartMinute;
+  return wraps
+    ? minuteOfDay >= cfg.workStartMinute || minuteOfDay < cfg.workEndMinute
+    : minuteOfDay >= cfg.workStartMinute && minuteOfDay < cfg.workEndMinute;
 }
 
 /**

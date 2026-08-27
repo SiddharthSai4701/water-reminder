@@ -15,7 +15,10 @@ export function nextWorkWindowStart(t: number, hours: WorkHours): number {
   for (let i = 0; i <= 7; i++) {
     const day = new Date(addLocalDays(t, i));
     if (!hours.workDays.includes(day.getDay())) continue;
-    day.setMinutes(hours.workStartMinute);
+    // Under a wrapping window the earliest in-window minute of a listed day
+    // is midnight, because the window covers 00:00 up to workEndMinute.
+    const wraps = hours.workEndMinute <= hours.workStartMinute;
+    day.setMinutes(wraps ? 0 : hours.workStartMinute);
     const start = day.getTime();
     if (start > t) return start;
   }
