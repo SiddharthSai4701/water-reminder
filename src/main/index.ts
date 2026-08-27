@@ -62,6 +62,10 @@ function pickContext(now: number): PickContext {
 }
 
 export function applyEffects(transition: Transition): void {
+  // Read before the reassignment: the pause ending is only visible as the
+  // difference between the old phase and the new one.
+  const wasPaused = state.phase === 'paused';
+
   state = transition.state;
 
   // Only on a real change. Writing on every tick would mean a disk write a
@@ -69,6 +73,17 @@ export function applyEffects(transition: Transition): void {
   if (state.nextDueAt !== persistedNextDueAt) {
     persistedNextDueAt = state.nextDueAt;
     config = saveConfig(config, { nextDueAt: state.nextDueAt });
+  }
+
+  // A pause that runs out on its own is still a config change, and the core
+  // signals it with a phase change and no effects. Nothing else clears
+  // dndUntil, so without this an open settings window renders an expired
+  // pause as an active hold for as long as it stays open — the tray only
+  // looks right because it re-derives `paused` from the timestamp every 30s.
+  if (wasPaused && state.phase !== 'paused' && config.dndUntil !== null) {
+    config = saveConfig(config, { dndUntil: null });
+    tray?.refresh();
+    settings?.broadcast(config);
   }
 
   const now = Date.now();
