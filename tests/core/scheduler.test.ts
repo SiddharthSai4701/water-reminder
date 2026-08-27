@@ -210,3 +210,33 @@ describe('work hours and sleep', () => {
     ]);
   });
 });
+
+describe('persisted nextDueAt', () => {
+  it('adopts a future value instead of re-arming', () => {
+    const now = MONDAY_10AM;
+    const stored = now + 7 * MIN;
+    expect(createInitialState(now, cfg, stored).nextDueAt).toBe(stored);
+  });
+
+  it('fires once for a value already in the past', () => {
+    const now = MONDAY_10AM;
+    const s = createInitialState(now, cfg, now - 90 * MIN);
+    const out = run(s, [now, now + 1000, now + 2000]);
+    expect(out.effects).toEqual([
+      { type: 'show', stageIndex: 0, mode: 'corner', sound: false },
+    ]);
+  });
+
+  it('re-arms a full interval when nothing was stored', () => {
+    const now = MONDAY_10AM;
+    expect(createInitialState(now, cfg, null).nextDueAt).toBe(now + cfg.intervalMinutes * MIN);
+    expect(createInitialState(now, cfg).nextDueAt).toBe(now + cfg.intervalMinutes * MIN);
+  });
+
+  it('ignores a non-finite stored value', () => {
+    const now = MONDAY_10AM;
+    expect(createInitialState(now, cfg, Number.NaN).nextDueAt).toBe(
+      now + cfg.intervalMinutes * MIN,
+    );
+  });
+});

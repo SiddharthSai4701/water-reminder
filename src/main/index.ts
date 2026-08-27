@@ -34,6 +34,7 @@ let recent: string[] = [];
 let popups: PopupManager;
 let tray: ReturnType<typeof createTray> | null = null;
 let pendingCustomLines: string[] = [];
+let persistedNextDueAt: number | null = null;
 
 function schedulerConfig(): SchedulerConfig {
   return {
@@ -58,6 +59,14 @@ function pickContext(now: number): PickContext {
 
 export function applyEffects(transition: Transition): void {
   state = transition.state;
+
+  // Only on a real change. Writing on every tick would mean a disk write a
+  // second for a value that moves once per interval.
+  if (state.nextDueAt !== persistedNextDueAt) {
+    persistedNextDueAt = state.nextDueAt;
+    config = saveConfig(config, { nextDueAt: state.nextDueAt });
+  }
+
   const now = Date.now();
 
   for (const effect of transition.effects) {
@@ -149,7 +158,8 @@ if (!gotLock) {
     pendingCustomLines = loaded.pendingCustomLines;
     packs = loadPacks(config.activePackIds, pendingCustomLines);
     popups = new PopupManager();
-    state = createInitialState(Date.now(), schedulerConfig());
+    persistedNextDueAt = config.nextDueAt;
+    state = createInitialState(Date.now(), schedulerConfig(), config.nextDueAt);
 
     // Packaged builds only. In dev, process.execPath is node_modules' bare
     // electron.exe with no app path, so registering it means every login

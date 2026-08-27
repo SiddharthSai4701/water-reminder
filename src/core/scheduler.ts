@@ -53,10 +53,24 @@ export function isWithinWorkHours(now: number, cfg: WorkHours): boolean {
   return minuteOfDay >= cfg.workStartMinute && minuteOfDay < cfg.workEndMinute;
 }
 
-export function createInitialState(now: number, cfg: SchedulerConfig): SchedulerState {
+/**
+ * `persistedNextDueAt` is the value carried across a restart. A past value
+ * produces exactly one reminder on the first tick rather than a burst — the
+ * same collapse rule that applies to waking from sleep.
+ */
+export function createInitialState(
+  now: number,
+  cfg: SchedulerConfig,
+  persistedNextDueAt: number | null = null,
+): SchedulerState {
+  const usable =
+    typeof persistedNextDueAt === 'number' && Number.isFinite(persistedNextDueAt)
+      ? persistedNextDueAt
+      : now + cfg.intervalMinutes * MIN;
+
   return {
     phase: 'idle',
-    nextDueAt: now + cfg.intervalMinutes * MIN,
+    nextDueAt: usable,
     dueSince: null,
     stageIndex: 0,
     pausedUntil: null,
