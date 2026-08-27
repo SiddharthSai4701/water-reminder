@@ -164,6 +164,54 @@ export function onSnooze(
   };
 }
 
+/**
+ * Re-aims a running scheduler after the config changed under it.
+ *
+ * A changed interval rescales from the last reminder rather than from `now`:
+ * restarting the countdown would mean every visit to settings silently buys
+ * a fresh full interval, which is easy to do by accident and impossible to
+ * notice. The anchor is derivable, so no new state is needed.
+ */
+export function onConfigChange(
+  state: SchedulerState,
+  oldCfg: SchedulerConfig,
+  newCfg: SchedulerConfig,
+  now: number,
+): Transition {
+  switch (state.phase) {
+    // A pause is an explicit instruction with an explicit end. Nothing in
+    // settings should shorten or lengthen it.
+    case 'paused':
+      return { state, effects: [] };
+
+    // So is a snooze: the user named the delay.
+    case 'snoozed':
+      return { state, effects: [] };
+
+    case 'idle': {
+      if (newCfg.intervalMinutes === oldCfg.intervalMinutes) return { state, effects: [] };
+      const anchor = state.nextDueAt - oldCfg.intervalMinutes * MIN;
+      return { state: { ...state, nextDueAt: anchor + newCfg.intervalMinutes * MIN }, effects: [] };
+    }
+
+    case 'due': {
+      // Re-derive the stage from elapsed time so a louder ladder escalates
+      // rather than restarting at stage 0.
+      const offsets = stageOffsets(newCfg.ladder);
+      const elapsed = now - (state.dueSince ?? now);
+      let target = 0;
+      for (let i = 1; i < newCfg.ladder.length; i++) {
+        if (elapsed >= offsets[i]) target = i;
+      }
+      if (target === state.stageIndex) return { state, effects: [] };
+      return {
+        state: { ...state, stageIndex: target },
+        effects: [showEffect(newCfg.ladder, target)],
+      };
+    }
+  }
+}
+
 export function setDnd(
   _state: SchedulerState,
   until: number | null,

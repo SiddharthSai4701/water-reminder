@@ -3,6 +3,7 @@ import { PRESET_LADDERS } from '../../src/core/ladder.js';
 import {
   createInitialState,
   isWithinWorkHours,
+  onConfigChange,
   onDrank,
   onSkip,
   onSnooze,
@@ -261,5 +262,64 @@ describe('persisted nextDueAt', () => {
     expect(createInitialState(now, cfg, Number.NaN).nextDueAt).toBe(
       now + cfg.intervalMinutes * MIN,
     );
+  });
+});
+
+describe('onConfigChange', () => {
+  it('rescales a pending reminder from the last one, not from now', () => {
+    const now = MONDAY_10AM;
+    const s = createInitialState(now, cfg);          // due at now + 45m (cfg.intervalMinutes is 45)
+    const faster = { ...cfg, intervalMinutes: 20 };
+    const out = onConfigChange(s, cfg, faster, now + 12 * MIN);
+    // anchor = now; 20m interval means due at now + 20m, i.e. 8m from here.
+    expect(out.state.nextDueAt).toBe(now + 20 * MIN);
+    expect(out.effects).toEqual([]);
+  });
+
+  it('fires promptly when the rescaled time has already passed', () => {
+    const now = MONDAY_10AM;
+    const s = createInitialState(now, cfg);
+    const faster = { ...cfg, intervalMinutes: 5 };
+    const out = onConfigChange(s, cfg, faster, now + 12 * MIN);
+    expect(out.state.nextDueAt).toBeLessThanOrEqual(now + 12 * MIN);
+  });
+
+  it('leaves a snooze alone', () => {
+    const now = MONDAY_10AM;
+    const snoozed = onSnooze(createInitialState(now, cfg), now, 10, cfg).state;
+    const out = onConfigChange(snoozed, cfg, { ...cfg, intervalMinutes: 90 }, now + MIN);
+    expect(out.state.nextDueAt).toBe(snoozed.nextDueAt);
+  });
+
+  it('escalates rather than restarting when the ladder gets louder mid-reminder', () => {
+    const now = MONDAY_10AM;
+    // Standard: corner 0, center +3, fullscreen +5 (absolute 0/3/8).
+    let s = createInitialState(now, cfg);
+    s = run(s, [now + 45 * MIN]).state;               // due, stage 0
+    const dueAt = now + 45 * MIN;
+    const relentless = { ...cfg, ladder: PRESET_LADDERS.relentless };
+    // 4 minutes in. Relentless is 0/2/5, so 4m elapsed belongs at stage 1.
+    const out = onConfigChange(s, cfg, relentless, dueAt + 4 * MIN);
+    expect(out.state.stageIndex).toBe(1);
+    expect(out.effects).toEqual([
+      { type: 'show', stageIndex: 1, mode: 'center', sound: false },
+    ]);
+  });
+
+  it('clamps the stage when the new ladder is shorter', () => {
+    const now = MONDAY_10AM;
+    let s = createInitialState(now, cfg);
+    s = run(s, [now + 45 * MIN, now + 45 * MIN + 9 * MIN]).state;   // stage 2
+    expect(s.stageIndex).toBe(2);
+    const out = onConfigChange(s, cfg, { ...cfg, ladder: PRESET_LADDERS.gentle }, now + 54 * MIN);
+    expect(out.state.stageIndex).toBe(0);
+  });
+
+  it('does not disturb a pause', () => {
+    const now = MONDAY_10AM;
+    const paused = setDnd(createInitialState(now, cfg), now + 60 * MIN, now, cfg).state;
+    const out = onConfigChange(paused, cfg, { ...cfg, intervalMinutes: 5 }, now + MIN);
+    expect(out.state).toEqual(paused);
+    expect(out.effects).toEqual([]);
   });
 });
