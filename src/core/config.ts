@@ -1,7 +1,7 @@
 import type { Config, CornerPosition, Ladder, PresetName, Schedule } from '../shared/types.js';
 import { PRESET_LADDERS, validateLadder } from './ladder.js';
 
-export const CONFIG_VERSION = 1;
+export const CONFIG_VERSION = 2;
 
 export const DEFAULT_CONFIG: Config = {
   version: CONFIG_VERSION,
@@ -22,10 +22,10 @@ export const DEFAULT_CONFIG: Config = {
   glassMl: 250,
   cornerPosition: 'bottom-right',
   activePackIds: ['sarcastic'],
-  customLines: [],
   autostart: true,
   soundEnabled: false,
   dndUntil: null,
+  nextDueAt: null,
 };
 
 const PRESETS: PresetName[] = ['gentle', 'nudge', 'standard', 'relentless', 'custom'];
@@ -88,10 +88,6 @@ export function normalizeConfig(raw: unknown): Config {
     ? (r.activePackIds as unknown[]).filter((s): s is string => typeof s === 'string')
     : d.activePackIds;
 
-  const customLines = Array.isArray(r.customLines)
-    ? (r.customLines as unknown[]).filter((s): s is string => typeof s === 'string')
-    : d.customLines;
-
   return {
     version: CONFIG_VERSION,
     schedule: normalizeSchedule(r.schedule),
@@ -104,9 +100,10 @@ export function normalizeConfig(raw: unknown): Config {
       ? (r.cornerPosition as CornerPosition)
       : d.cornerPosition,
     activePackIds: packIds.length > 0 ? [...packIds] : [...d.activePackIds],
-    customLines: [...customLines],
     autostart: typeof r.autostart === 'boolean' ? r.autostart : d.autostart,
     soundEnabled: typeof r.soundEnabled === 'boolean' ? r.soundEnabled : d.soundEnabled,
     dndUntil: typeof r.dndUntil === 'number' && Number.isFinite(r.dndUntil) ? r.dndUntil : null,
+    nextDueAt:
+      typeof r.nextDueAt === 'number' && Number.isFinite(r.nextDueAt) ? r.nextDueAt : null,
   };
 }

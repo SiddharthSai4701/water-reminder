@@ -113,7 +113,7 @@ export const actions = {
   },
   refreshConfig(): void {
     config = loadConfig();
-    packs = loadPacks(config.activePackIds, config.customLines);
+    packs = loadPacks(config.activePackIds, []);
   },
   nextDueAt(): number {
     return state.nextDueAt;
@@ -142,7 +142,7 @@ if (!gotLock) {
 } else {
   void app.whenReady().then(() => {
     config = loadConfig();
-    packs = loadPacks(config.activePackIds, config.customLines);
+    packs = loadPacks(config.activePackIds, []);
     popups = new PopupManager();
     state = createInitialState(Date.now(), schedulerConfig());
 

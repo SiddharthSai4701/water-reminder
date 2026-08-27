@@ -113,7 +113,16 @@ describe('normalizeConfig', () => {
     expect(a.ladder).not.toBe(PRESET_LADDERS.standard);
     expect(a.schedule.workDays).not.toBe(DEFAULT_CONFIG.schedule.workDays);
     expect(a.activePackIds).not.toBe(DEFAULT_CONFIG.activePackIds);
-    expect(a.customLines).not.toBe(DEFAULT_CONFIG.customLines);
+  });
+
+  it('defaults nextDueAt to null and rejects a non-finite value', () => {
+    expect(normalizeConfig({}).nextDueAt).toBeNull();
+    expect(normalizeConfig({ nextDueAt: Number.NaN }).nextDueAt).toBeNull();
+    expect(normalizeConfig({ nextDueAt: 1787542200000 }).nextDueAt).toBe(1787542200000);
+  });
+
+  it('stamps the current config version', () => {
+    expect(normalizeConfig({ version: 1 }).version).toBe(CONFIG_VERSION);
   });
 });
 

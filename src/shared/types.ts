@@ -33,11 +33,12 @@ export interface Config {
   glassMl: number;
   cornerPosition: CornerPosition;
   activePackIds: string[];
-  customLines: string[];
   autostart: boolean;
   soundEnabled: boolean;
   /** Epoch ms until which reminders are paused, or null. */
   dndUntil: number | null;
+  /** Epoch ms of the next reminder, persisted so a relaunch does not re-arm. */
+  nextDueAt: number | null;
 }
 
 export type LogEventType = 'drank' | 'skip' | 'snooze';
