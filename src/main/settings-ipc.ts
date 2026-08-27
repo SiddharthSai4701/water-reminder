@@ -17,6 +17,21 @@ export interface SettingsIpcDeps {
   reloadPacks(): void;
 }
 
+/**
+ * Pack ids become filenames. The renderer is first-party and sandboxed, but
+ * these are the only channels that put a renderer-supplied string into a
+ * filesystem path, and one of them deletes: an id of `../config` on the
+ * revert channel would take out the user's config file, silently, because
+ * the unlink runs with { force: true }.
+ */
+const SAFE_ID = /^[A-Za-z0-9_-]+$/;
+
+/** `SAFE_ID.test` coerces, so a non-string would be checked as its own
+ *  spelling — `null` would pass as "null". Rejected by type first. */
+function isSafeId(id: unknown): id is string {
+  return typeof id === 'string' && SAFE_ID.test(id);
+}
+
 function summaries(config: Config): PackSummary[] {
   const ids = listPackIds();
   const { packs, errors } = loadPacksWithErrors(ids);
@@ -45,12 +60,15 @@ export function registerSettingsIpc(deps: SettingsIpcDeps): void {
   ipcMain.handle('settings:patch', (_e, partial: Partial<Config>) => deps.patchConfig(partial));
 
   ipcMain.handle('settings:packs:read', (_e, id: string) => {
+    if (!isSafeId(id)) return '';
     const { packs } = loadPacksWithErrors([id]);
     const pack = packs.find((p) => p.id === id);
     return pack === undefined ? '' : formatPackText(pack.lines);
   });
 
   ipcMain.handle('settings:packs:write', (_e, id: string, text: string): PackWriteResult => {
+    if (!isSafeId(id)) return { ok: false, errors: [{ message: 'invalid pack id' }] };
+
     const parsed = parsePackText(text);
     if (parsed.errors.length > 0) return { ok: false, errors: parsed.errors };
 
@@ -70,6 +88,7 @@ export function registerSettingsIpc(deps: SettingsIpcDeps): void {
   });
 
   ipcMain.handle('settings:packs:revert', (_e, id: string) => {
+    if (!isSafeId(id)) return summaries(deps.config());
     deleteUserPack(id);
     deps.reloadPacks();
     return summaries(deps.config());
