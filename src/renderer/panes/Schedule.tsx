@@ -1,5 +1,6 @@
+import type { ChangeEvent } from 'react';
 import type { Config, Schedule } from '../../shared/types.js';
-import { numberBlur } from './numberField.js';
+import { fieldKey, numberBlur, useFieldRevision } from './numberField.js';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const OFFICE_HOURS = { start: 9 * 60, end: 18 * 60 };
@@ -21,7 +22,30 @@ function fromTimeValue(value: string): number {
   return h * 60 + m;
 }
 
+/**
+ * A cleared time input reports an empty value and still fires change, and
+ * fromTimeValue of an empty string is NaN - which clampNumber replaces with
+ * the *default* rather than with the value already stored. Backspacing the
+ * From field of a 22:00-06:00 window to retype it would rewrite the window to
+ * 00:00-06:00 and take the user's whole waking day of reminders with it.
+ * Refuse to store anything that is not a real time, and put the stored one
+ * back in the field: nothing is patched, so nothing re-renders to restore it.
+ */
+function setTime(
+  event: ChangeEvent<HTMLInputElement>,
+  stored: number,
+  apply: (minutes: number) => void,
+): void {
+  const minutes = fromTimeValue(event.currentTarget.value);
+  if (!Number.isFinite(minutes)) {
+    event.currentTarget.value = toTimeValue(stored);
+    return;
+  }
+  apply(minutes);
+}
+
 export default function SchedulePane({ config, patch }: Props): JSX.Element {
+  const [revision, bumpRevision] = useFieldRevision();
   const s = config.schedule;
   const alwaysOn = s.workStartMinute === 0 && s.workEndMinute === 1440;
   const overnight = s.workEndMinute <= s.workStartMinute;
@@ -45,16 +69,20 @@ export default function SchedulePane({ config, patch }: Props): JSX.Element {
         Remind me every
         {/* defaultValue + onBlur, not value + onChange: a controlled number
             input is clamped on every keystroke and fights the user mid-type.
-            The key remounts the field whenever the *stored* value changes, so
-            a clamped write snaps the field to what was actually stored rather
-            than leaving it showing a number nobody saved. */}
+            The key remounts the field after every write that lands, so a
+            clamped or rounded value snaps the field to what was actually
+            stored rather than leaving it showing a number nobody saved. */}
         <input
-          key={s.intervalMinutes}
+          key={fieldKey(s.intervalMinutes, revision)}
           type="number"
           min={1}
           max={600}
           defaultValue={s.intervalMinutes}
-          onBlur={numberBlur(s.intervalMinutes, (v) => void setSchedule({ intervalMinutes: v }))}
+          onBlur={numberBlur(
+            s.intervalMinutes,
+            (v) => setSchedule({ intervalMinutes: v }),
+            bumpRevision,
+          )}
         />
         minutes
       </label>
@@ -81,7 +109,9 @@ export default function SchedulePane({ config, patch }: Props): JSX.Element {
           <input
             type="time"
             value={toTimeValue(s.workStartMinute)}
-            onChange={(e) => void setSchedule({ workStartMinute: fromTimeValue(e.currentTarget.value) })}
+            onChange={(e) =>
+              setTime(e, s.workStartMinute, (m) => void setSchedule({ workStartMinute: m }))
+            }
           />
         </label>
         <label>
@@ -89,7 +119,9 @@ export default function SchedulePane({ config, patch }: Props): JSX.Element {
           <input
             type="time"
             value={toTimeValue(s.workEndMinute)}
-            onChange={(e) => void setSchedule({ workEndMinute: fromTimeValue(e.currentTarget.value) })}
+            onChange={(e) =>
+              setTime(e, s.workEndMinute, (m) => void setSchedule({ workEndMinute: m }))
+            }
           />
         </label>
         {overnight && !alwaysOn && (
@@ -109,18 +141,25 @@ export default function SchedulePane({ config, patch }: Props): JSX.Element {
             {name}
           </button>
         ))}
+        {s.workDays.length === 1 && (
+          // A refusal the user cannot see reads as a dead button, which is the
+          // small version of the silent stop this rule exists to prevent.
+          <p className="note">At least one day is needed, so the last one cannot be cleared.</p>
+        )}
       </fieldset>
 
       <label>
         Snooze for
         <input
-          key={config.defaultSnoozeMinutes}
+          key={fieldKey(config.defaultSnoozeMinutes, revision)}
           type="number"
           min={1}
           max={240}
           defaultValue={config.defaultSnoozeMinutes}
-          onBlur={numberBlur(config.defaultSnoozeMinutes, (v) =>
-            void patch({ defaultSnoozeMinutes: v }),
+          onBlur={numberBlur(
+            config.defaultSnoozeMinutes,
+            (v) => patch({ defaultSnoozeMinutes: v }),
+            bumpRevision,
           )}
         />
         minutes by default

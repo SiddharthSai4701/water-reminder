@@ -1,5 +1,5 @@
 import type { Config } from '../../shared/types.js';
-import { numberBlur } from './numberField.js';
+import { fieldKey, numberBlur, useFieldRevision } from './numberField.js';
 
 interface Props {
   config: Config;
@@ -13,6 +13,7 @@ function litres(ml: number): string {
 }
 
 export default function HydrationPane({ config, patch }: Props): JSX.Element {
+  const [revision, bumpRevision] = useFieldRevision();
   // glassMl is clamped to 50..2000 by normalizeConfig, so it is never 0 here.
   const glasses = Math.ceil(config.goalMl / config.glassMl);
 
@@ -22,16 +23,16 @@ export default function HydrationPane({ config, patch }: Props): JSX.Element {
         Daily goal
         {/* defaultValue + onBlur, like the schedule's number inputs: a
             controlled value would be clamped on every keystroke and fight the
-            user mid-type. The key remounts on a change to the stored value, so
-            a clamp is visible immediately instead of diverging. */}
+            user mid-type. The key remounts after every write that lands, so a
+            clamp is visible immediately instead of diverging. */}
         <input
-          key={config.goalMl}
+          key={fieldKey(config.goalMl, revision)}
           type="number"
           min={250}
           max={10000}
           step={50}
           defaultValue={config.goalMl}
-          onBlur={numberBlur(config.goalMl, (v) => void patch({ goalMl: v }))}
+          onBlur={numberBlur(config.goalMl, (v) => patch({ goalMl: v }), bumpRevision)}
         />
         ml
         <span className="note">{litres(config.goalMl)}</span>
@@ -40,13 +41,13 @@ export default function HydrationPane({ config, patch }: Props): JSX.Element {
       <label>
         A glass is
         <input
-          key={config.glassMl}
+          key={fieldKey(config.glassMl, revision)}
           type="number"
           min={50}
           max={2000}
           step={10}
           defaultValue={config.glassMl}
-          onBlur={numberBlur(config.glassMl, (v) => void patch({ glassMl: v }))}
+          onBlur={numberBlur(config.glassMl, (v) => patch({ glassMl: v }), bumpRevision)}
         />
         ml
       </label>
