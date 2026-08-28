@@ -58,3 +58,48 @@ export function validateLadder(ladder: unknown): string[] {
 
   return errors;
 }
+
+/**
+ * The ceiling on a single stage's delay. The config's other minute fields stop
+ * at 600 (the reminder interval) and 240 (the snooze), so a stage may wait as
+ * long as the longest interval this app will ever schedule, and no longer.
+ * Past that a stage is not slow, it is a stage that never arrives — and ladder
+ * delays are the one number normalizeConfig copies verbatim instead of putting
+ * through clampNumber, so nothing downstream would rein one in.
+ */
+export const MAX_STAGE_DELAY_MINUTES = 600;
+
+/**
+ * Apply `patch` to one stage and return the whole resulting ladder, or `null`
+ * if that ladder is not one that may be stored.
+ *
+ * This is the guard between a typed number and normalizeConfig, which does not
+ * reject an invalid ladder — it silently substitutes the standard preset. An
+ * invalid write therefore never surfaces as an error; it surfaces as every
+ * stage the user configured being gone, with nothing on screen to say why. A
+ * caller must read `null` as "refuse this edit and put the old value back".
+ *
+ * It returns the candidate rather than a boolean on purpose. A caller that
+ * asks whether an edit is allowed and then rebuilds the ladder separately to
+ * store it is keeping two constructions in step by hand, and the trap reopens
+ * the day they drift apart.
+ */
+export function tryUpdateStage(
+  ladder: Ladder,
+  index: number,
+  patch: Partial<Stage>,
+): Ladder | null {
+  if (!Number.isInteger(index) || index < 0 || index >= ladder.length) return null;
+
+  // Only the delay this patch is *setting* is bounded, never whatever the
+  // stage already holds. validateLadder permits a fractional delay, so a
+  // hand-edited config may legally carry one, and ticking that stage's sound
+  // box must not be refused over a number the patch does not touch.
+  if (patch.delayMinutes !== undefined) {
+    const delay = patch.delayMinutes;
+    if (!Number.isInteger(delay) || delay < 0 || delay > MAX_STAGE_DELAY_MINUTES) return null;
+  }
+
+  const next = ladder.map((stage, i) => (i === index ? { ...stage, ...patch } : { ...stage }));
+  return validateLadder(next).length === 0 ? next : null;
+}

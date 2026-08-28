@@ -1,5 +1,5 @@
 import { CORNERS } from '../../core/config.js';
-import { PRESET_LADDERS, validateLadder } from '../../core/ladder.js';
+import { MAX_STAGE_DELAY_MINUTES, PRESET_LADDERS, tryUpdateStage } from '../../core/ladder.js';
 import { stageOffsets } from '../../core/scheduler.js';
 import type {
   Config,
@@ -99,12 +99,17 @@ function StageRow({
         {/* defaultValue + onBlur like every other number field in the window,
             and refused entries are put back by numberBlur's accept guard
             rather than by a min attribute the browser does not enforce on a
-            typed value. */}
+            typed value. min and max only describe the range tryUpdateStage
+            actually enforces; they are not what holds it. */}
         <input
           key={fieldKey(stage.delayMinutes, revision)}
           type="number"
           min={first ? 0 : 1}
+          max={MAX_STAGE_DELAY_MINUTES}
           disabled={first}
+          // The stage number lives in a span outside this label, so without
+          // this every row's field is announced with the same name.
+          aria-label={`Stage ${index + 1} delay in minutes`}
           defaultValue={stage.delayMinutes}
           onBlur={numberBlur(
             stage.delayMinutes,
@@ -121,6 +126,7 @@ function StageRow({
       <label className="stage-sound">
         <input
           type="checkbox"
+          aria-label={`Play a sound at stage ${index + 1}`}
           checked={stage.sound === true}
           onChange={(e) => setSound(index, e.currentTarget.checked)}
         />
@@ -135,31 +141,33 @@ export default function EscalationPane({ config, patch }: Props): JSX.Element {
   const offsets = stageOffsets(ladder);
   const custom = config.preset === 'custom';
 
-  function withStage(index: number, next: Partial<Stage>): Ladder {
-    return ladder.map((stage, i) => (i === index ? { ...stage, ...next } : { ...stage }));
-  }
-
   /**
-   * The gate that matters in this pane. normalizeConfig does not reject an
-   * invalid ladder — it silently replaces it with the standard preset, so a
-   * ladder validateLadder would fail does not come back as an error, it comes
-   * back as somebody else's ladder with every stage the user configured gone
-   * and nothing on screen to say why. Nothing here may write a ladder that
-   * would not survive validateLadder, so every ladder write goes through here.
+   * Every ladder write in this pane ends here. tryUpdateStage has already
+   * refused anything that would not survive validateLadder, so `null` means
+   * write nothing — which is the whole point, because normalizeConfig answers
+   * an invalid ladder not with an error but by silently substituting the
+   * standard preset, leaving the user's stages gone with nothing on screen to
+   * say why.
    */
-  function writeLadder(next: Ladder): Promise<void> {
-    if (validateLadder(next).length > 0) return Promise.resolve();
+  function writeLadder(next: Ladder | null): Promise<void> {
+    if (next === null) return Promise.resolve();
     return patch({ preset: 'custom', ladder: next });
   }
 
+  // Asking whether an edit is allowed and building the ladder to store are the
+  // same call, so the candidate that was checked is the candidate that is
+  // written. Two separate constructions would only have to drift once.
+  const delayCandidate = (index: number, minutes: number): Ladder | null =>
+    tryUpdateStage(ladder, index, { delayMinutes: minutes });
+
   const acceptDelay = (index: number, minutes: number): boolean =>
-    validateLadder(withStage(index, { delayMinutes: minutes })).length === 0;
+    delayCandidate(index, minutes) !== null;
 
   const setDelay = (index: number, minutes: number): Promise<void> =>
-    writeLadder(withStage(index, { delayMinutes: minutes }));
+    writeLadder(delayCandidate(index, minutes));
 
   const setSound = (index: number, sound: boolean): void => {
-    void writeLadder(withStage(index, { sound }));
+    void writeLadder(tryUpdateStage(ladder, index, { sound }));
   };
 
   function choosePreset(preset: Preset): void {
