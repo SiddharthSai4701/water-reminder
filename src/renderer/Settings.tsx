@@ -1,27 +1,51 @@
 import { useEffect, useState } from 'react';
 import type { Config, PackSummary } from '../shared/types.js';
+import GeneralPane from './panes/General.js';
+import HydrationPane from './panes/Hydration.js';
+import SchedulePane from './panes/Schedule.js';
 
 const PANES = ['Schedule', 'Escalation', 'Hydration', 'Packs', 'General'] as const;
 type Pane = (typeof PANES)[number];
+
+function describe(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 export default function Settings(): JSX.Element {
   const [pane, setPane] = useState<Pane>('Schedule');
   const [config, setConfig] = useState<Config | null>(null);
   const [packs, setPacks] = useState<PackSummary[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void window.waterSettings.get().then((state) => {
-      setConfig(state.config);
-      setPacks(state.packs);
-    });
+    window.waterSettings
+      .get()
+      .then((state) => {
+        setConfig(state.config);
+        setPacks(state.packs);
+      })
+      // Without this the window sits on "Loading…" for ever and looks hung,
+      // with the reason only in a devtools console nobody opens.
+      .catch((err: unknown) => setError(`Could not load your settings: ${describe(err)}`));
     return window.waterSettings.onChanged(setConfig);
   }, []);
 
   async function patch(partial: Partial<Config>): Promise<void> {
-    setConfig(await window.waterSettings.patch(partial));
+    try {
+      // The main process is the source of truth: what comes back is the
+      // normalized config, so a clamped value shows up rather than diverging.
+      setConfig(await window.waterSettings.patch(partial));
+      setError(null);
+    } catch (err: unknown) {
+      // There is no Save button, so a rejected patch is the only signal the
+      // user gets that the change did not stick.
+      setError(`Could not save that change: ${describe(err)}`);
+    }
   }
 
-  if (config === null) return <div className="loading">Loading…</div>;
+  if (config === null) {
+    return <div className={error === null ? 'loading' : 'loading error'}>{error ?? 'Loading…'}</div>;
+  }
 
   return (
     <div className="shell">
@@ -39,12 +63,21 @@ export default function Settings(): JSX.Element {
       </nav>
       <main>
         <h1>{pane}</h1>
-        <p className="placeholder">
-          {`${pane} settings arrive in a later task.`}
-        </p>
-        {/* patch and packs are wired up by Tasks 10-12. */}
-        <span hidden>{`${packs.length} packs, goal ${config.goalMl}`}</span>
-        <button hidden onClick={() => void patch({})} />
+        {error !== null && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        {pane === 'Schedule' && <SchedulePane config={config} patch={patch} />}
+        {/* Escalation is Task 11 and Packs is Task 12. */}
+        {pane === 'Escalation' && (
+          <p className="placeholder">Escalation settings arrive in a later task.</p>
+        )}
+        {pane === 'Hydration' && <HydrationPane config={config} patch={patch} />}
+        {pane === 'Packs' && (
+          <p className="placeholder">{`${packs.length} packs installed. Pack editing arrives in a later task.`}</p>
+        )}
+        {pane === 'General' && <GeneralPane config={config} patch={patch} />}
       </main>
     </div>
   );

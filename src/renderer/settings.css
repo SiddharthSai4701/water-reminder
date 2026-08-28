@@ -93,3 +93,123 @@ h1 {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* --- Panes ---------------------------------------------------------- */
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  font-size: 14px;
+  max-width: 34rem;
+}
+
+.pane label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+.pane input[type='number'],
+.pane input[type='time'] {
+  font: inherit;
+  color: var(--text);
+  background: rgba(234, 246, 251, 0.06);
+  border: 1px solid rgba(79, 195, 247, 0.35);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+
+.pane input[type='number'] {
+  width: 5.5rem;
+}
+
+.pane input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.pane fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  border: 1px solid rgba(79, 195, 247, 0.25);
+  border-radius: 10px;
+  padding: 10px 14px 14px;
+}
+
+.pane legend {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0 4px;
+}
+
+/* The Always-on checkbox disables the hours fieldset; say so visually
+   rather than leaving inputs that look live but ignore clicks. */
+.pane fieldset:disabled {
+  opacity: 0.45;
+}
+
+/* Day toggles. aria-pressed is the state, so it drives the styling too. */
+.pane fieldset button {
+  font: inherit;
+  font-weight: 600;
+  min-width: 3.2rem;
+  border: 1px solid rgba(79, 195, 247, 0.35);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.pane fieldset button[aria-pressed='true'] {
+  background: rgba(79, 195, 247, 0.2);
+  border-color: rgba(79, 195, 247, 0.7);
+  color: var(--text);
+}
+
+.pane .row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pane button.danger {
+  font: inherit;
+  font-weight: 600;
+  border: 1px solid rgba(255, 138, 128, 0.6);
+  border-radius: 8px;
+  background: rgba(255, 138, 128, 0.12);
+  color: #ffb3aa;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+.note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* The overnight note explains a window that otherwise reads as a typo, so it
+   breaks onto its own line under the two time fields instead of being squeezed
+   in beside them. Inline notes elsewhere (the litre readout) stay inline. */
+.pane fieldset .note {
+  flex-basis: 100%;
+}
+
+.error {
+  margin: 0 0 12px;
+  color: #ffb3aa;
+  font-size: 13px;
+}
