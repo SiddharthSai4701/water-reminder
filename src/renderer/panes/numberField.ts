@@ -38,16 +38,26 @@ export function fieldKey(stored: number, revision: number): string {
  * nothing parseable is not a value to store. Put the stored value back in the
  * field instead, since an uncontrolled input will not restore itself when no
  * patch is sent and therefore nothing re-renders.
+ *
+ * `accept` refuses values that parse perfectly well but must not be stored.
+ * A `min` attribute does not stop a typed number reaching blur, and some
+ * fields feed a normalizer that answers an out-of-range value by discarding
+ * configuration rather than by clamping — the escalation ladder is one, where
+ * a `0` in a later stage's delay makes the whole ladder invalid and
+ * normalizeConfig replaces it with the standard preset. Such a value takes the
+ * same road as an unparseable one: nothing is written and the field is put
+ * back to what is stored.
  */
 export function numberBlur(
   stored: number,
   apply: (value: number) => Promise<void>,
   settled: () => void,
+  accept?: (value: number) => boolean,
 ): (event: FocusEvent<HTMLInputElement>) => void {
   return (event) => {
     const raw = event.currentTarget.value.trim();
     const value = Number(raw);
-    if (raw === '' || !Number.isFinite(value)) {
+    if (raw === '' || !Number.isFinite(value) || (accept !== undefined && !accept(value))) {
       event.currentTarget.value = String(stored);
       return;
     }

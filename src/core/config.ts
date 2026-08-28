@@ -29,7 +29,7 @@ export const DEFAULT_CONFIG: Config = {
 };
 
 const PRESETS: PresetName[] = ['gentle', 'nudge', 'standard', 'relentless', 'custom'];
-const CORNERS: CornerPosition[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+export const CORNERS: CornerPosition[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Config, PackSummary } from '../shared/types.js';
+import EscalationPane from './panes/Escalation.js';
 import GeneralPane from './panes/General.js';
 import HydrationPane from './panes/Hydration.js';
 import SchedulePane from './panes/Schedule.js';
@@ -69,11 +70,9 @@ export default function Settings(): JSX.Element {
           </p>
         )}
         {pane === 'Schedule' && <SchedulePane config={config} patch={patch} />}
-        {/* Escalation is Task 11 and Packs is Task 12. */}
-        {pane === 'Escalation' && (
-          <p className="placeholder">Escalation settings arrive in a later task.</p>
-        )}
+        {pane === 'Escalation' && <EscalationPane config={config} patch={patch} />}
         {pane === 'Hydration' && <HydrationPane config={config} patch={patch} />}
+        {/* Packs is Task 12. */}
         {pane === 'Packs' && (
           <p className="placeholder">{`${packs.length} packs installed. Pack editing arrives in a later task.`}</p>
         )}
