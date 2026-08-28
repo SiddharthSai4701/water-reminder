@@ -45,7 +45,9 @@ function setTime(
 }
 
 export default function SchedulePane({ config, patch }: Props): JSX.Element {
-  const [revision, bumpRevision] = useFieldRevision();
+  // One counter per field: see useFieldRevision on why these are not shared.
+  const [intervalRevision, bumpInterval] = useFieldRevision();
+  const [snoozeRevision, bumpSnooze] = useFieldRevision();
   const s = config.schedule;
   const alwaysOn = s.workStartMinute === 0 && s.workEndMinute === 1440;
   const overnight = s.workEndMinute <= s.workStartMinute;
@@ -73,7 +75,7 @@ export default function SchedulePane({ config, patch }: Props): JSX.Element {
             clamped or rounded value snaps the field to what was actually
             stored rather than leaving it showing a number nobody saved. */}
         <input
-          key={fieldKey(s.intervalMinutes, revision)}
+          key={fieldKey(s.intervalMinutes, intervalRevision)}
           type="number"
           min={1}
           max={600}
@@ -81,7 +83,7 @@ export default function SchedulePane({ config, patch }: Props): JSX.Element {
           onBlur={numberBlur(
             s.intervalMinutes,
             (v) => setSchedule({ intervalMinutes: v }),
-            bumpRevision,
+            bumpInterval,
           )}
         />
         minutes
@@ -151,7 +153,7 @@ export default function SchedulePane({ config, patch }: Props): JSX.Element {
       <label>
         Snooze for
         <input
-          key={fieldKey(config.defaultSnoozeMinutes, revision)}
+          key={fieldKey(config.defaultSnoozeMinutes, snoozeRevision)}
           type="number"
           min={1}
           max={240}
@@ -159,7 +161,7 @@ export default function SchedulePane({ config, patch }: Props): JSX.Element {
           onBlur={numberBlur(
             config.defaultSnoozeMinutes,
             (v) => patch({ defaultSnoozeMinutes: v }),
-            bumpRevision,
+            bumpSnooze,
           )}
         />
         minutes by default

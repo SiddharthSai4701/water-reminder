@@ -2,7 +2,8 @@ import { useState } from 'react';
 import type { FocusEvent } from 'react';
 
 /**
- * A remount counter for one pane's uncontrolled number inputs.
+ * A remount counter for ONE uncontrolled number input. Call it once per
+ * field, never once per pane.
  *
  * Keying an input on its stored value alone only remounts when that value
  * *changes*, so any entry that normalizes back to what is already stored —
@@ -10,6 +11,12 @@ import type { FocusEvent } from 'react';
  * interval of 30 — leaves raw text sitting in a field the store never
  * accepted. Bumping this on every write that lands makes the key change
  * either way, so the field always ends up showing what was actually saved.
+ *
+ * One counter shared across a pane would couple its fields: blur A, tab to B
+ * and start typing, and A's write settling would remount B and take the
+ * half-typed text with it — the mid-type fighting that defaultValue exists to
+ * avoid, arriving sideways from a sibling. A field's counter must move only
+ * for that field's own writes.
  */
 export function useFieldRevision(): [number, () => void] {
   const [revision, setRevision] = useState(0);
