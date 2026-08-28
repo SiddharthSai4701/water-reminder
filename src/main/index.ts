@@ -206,7 +206,18 @@ if (!gotLock) {
         // old scheduler config against the new one, and passing the same
         // object twice makes every interval change silently no-op.
         const previous = schedulerConfig();
+        const wasAutostart = config.autostart;
         config = saveConfig(config, partial);
+
+        // The login item was otherwise only registered at startup, so
+        // unchecking the box left the app still launching at the next login
+        // and unregistering itself only on the launch after that - a control
+        // making a promise it does not keep. Packaged builds only, for the
+        // same reason the startup call is guarded.
+        if (config.autostart !== wasAutostart && app.isPackaged) {
+          app.setLoginItemSettings({ openAtLogin: config.autostart, args: ['--hidden'] });
+        }
+
         packs = loadPacks(config.activePackIds, pendingCustomLines);
         applyEffects(onConfigChange(state, previous, schedulerConfig(), Date.now()));
         tray?.refresh();
