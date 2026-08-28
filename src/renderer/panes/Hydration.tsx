@@ -1,4 +1,5 @@
 import type { Config } from '../../shared/types.js';
+import { numberBlur } from './numberField.js';
 
 interface Props {
   config: Config;
@@ -20,15 +21,17 @@ export default function HydrationPane({ config, patch }: Props): JSX.Element {
       <label>
         Daily goal
         {/* defaultValue + onBlur, like the schedule's number inputs: a
-            controlled value would be clamped on every keystroke and fight
-            the user mid-type. */}
+            controlled value would be clamped on every keystroke and fight the
+            user mid-type. The key remounts on a change to the stored value, so
+            a clamp is visible immediately instead of diverging. */}
         <input
+          key={config.goalMl}
           type="number"
           min={250}
           max={10000}
           step={50}
           defaultValue={config.goalMl}
-          onBlur={(e) => void patch({ goalMl: Number(e.currentTarget.value) })}
+          onBlur={numberBlur(config.goalMl, (v) => void patch({ goalMl: v }))}
         />
         ml
         <span className="note">{litres(config.goalMl)}</span>
@@ -37,12 +40,13 @@ export default function HydrationPane({ config, patch }: Props): JSX.Element {
       <label>
         A glass is
         <input
+          key={config.glassMl}
           type="number"
           min={50}
           max={2000}
           step={10}
           defaultValue={config.glassMl}
-          onBlur={(e) => void patch({ glassMl: Number(e.currentTarget.value) })}
+          onBlur={numberBlur(config.glassMl, (v) => void patch({ glassMl: v }))}
         />
         ml
       </label>

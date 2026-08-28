@@ -1,4 +1,5 @@
 import type { Config, Schedule } from '../../shared/types.js';
+import { numberBlur } from './numberField.js';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const OFFICE_HOURS = { start: 9 * 60, end: 18 * 60 };
@@ -42,12 +43,18 @@ export default function SchedulePane({ config, patch }: Props): JSX.Element {
     <div className="pane">
       <label>
         Remind me every
+        {/* defaultValue + onBlur, not value + onChange: a controlled number
+            input is clamped on every keystroke and fights the user mid-type.
+            The key remounts the field whenever the *stored* value changes, so
+            a clamped write snaps the field to what was actually stored rather
+            than leaving it showing a number nobody saved. */}
         <input
+          key={s.intervalMinutes}
           type="number"
           min={1}
           max={600}
           defaultValue={s.intervalMinutes}
-          onBlur={(e) => void setSchedule({ intervalMinutes: Number(e.currentTarget.value) })}
+          onBlur={numberBlur(s.intervalMinutes, (v) => void setSchedule({ intervalMinutes: v }))}
         />
         minutes
       </label>
@@ -107,11 +114,14 @@ export default function SchedulePane({ config, patch }: Props): JSX.Element {
       <label>
         Snooze for
         <input
+          key={config.defaultSnoozeMinutes}
           type="number"
           min={1}
           max={240}
           defaultValue={config.defaultSnoozeMinutes}
-          onBlur={(e) => void patch({ defaultSnoozeMinutes: Number(e.currentTarget.value) })}
+          onBlur={numberBlur(config.defaultSnoozeMinutes, (v) =>
+            void patch({ defaultSnoozeMinutes: v }),
+          )}
         />
         minutes by default
       </label>
