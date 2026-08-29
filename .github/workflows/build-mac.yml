@@ -45,6 +45,24 @@ jobs:
           # notarization. First launch needs right-click -> Open.
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
+      - name: Report bundle size
+        # The install size is the app's biggest complaint, and it is invisible
+        # from the Windows dev machine: nothing here can build or open a .app.
+        # Printing the breakdown per build is the only way a size change is
+        # ever noticed rather than discovered by a user a year later.
+        run: |
+          APP="dist/mac-arm64/Water Reminder.app"
+          echo "### Bundle size" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          du -sh dist/*.dmg | tee -a "$GITHUB_STEP_SUMMARY"
+          du -sh "$APP" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "--- largest inside the app ---" | tee -a "$GITHUB_STEP_SUMMARY"
+          find "$APP" -type f -size +2M -exec du -m {} + \
+            | sort -rn | head -20 | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "--- locales kept ---" | tee -a "$GITHUB_STEP_SUMMARY"
+          find "$APP" -name '*.lproj' | wc -l | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
