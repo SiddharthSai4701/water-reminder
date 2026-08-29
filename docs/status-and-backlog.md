@@ -1,6 +1,6 @@
 # Status and Backlog
 
-Last updated: 2026-08-25, at the end of Phase 1 and partway through Phase 2.
+Last updated: 2026-08-29, at the end of Phase 3a's implementation.
 
 This file exists because the Phase 1 review findings and the decisions taken
 during it lived in a scratch workspace that was deleted at merge. Everything
@@ -17,8 +17,8 @@ below is the part that was not otherwise written down. Read it alongside:
 | Phase | State |
 |---|---|
 | 1 — core loop, tray, escalation | **Done.** Merged to `master`, 104 tests. |
-| 2 — macOS verification | **In progress.** See below. |
-| 3a — settings, config, packs | **Specced.** See the Phase 3a design. |
+| 2 — macOS verification | **Nearly done.** See below; the core promise passed. |
+| 3a — settings, config, packs | **Built,** on `feat/phase-3a`, 208 tests. Needs the macOS pass on a fresh `.dmg`. |
 | 3b — themes, mascot, sound, stats | Not started. Specced after 3a is in use. |
 | 4 — smart pause | Not started. Mic/meeting/fullscreen/idle detection. |
 
@@ -41,11 +41,20 @@ Verified working:
 - [x] Corner card renders correctly and is legible
 - [x] Escalation reaches the centered window and the fullscreen stage
 - [x] Fullscreen stage renders correctly over a dark app
+- [x] **App absent from the Cmd-Tab switcher** (2026-08-28, v0.1.5). Tried
+      directly: the reminder cannot be escaped that way.
+- [x] **The settings window opens from the tray and comes to the front**
+      (2026-08-28, v0.1.5), including while a fullscreen app is frontmost.
+      `app.focus({ steal: true })` under `LSUIElement` with the dock hidden
+      was the one new macOS unknown Phase 3a introduced; it works. Treat the
+      focus call in `settings-window.ts` as load-bearing.
+- [x] **An active reminder still wins over the settings window**
+      (2026-08-28, v0.1.5). The stage-1 popup draws over settings. A second
+      window now exists in the process and the core promise survived it.
 
 Still unverified, and **not checkable from Windows** — these are the reason
 Phase 2 exists:
 
-- [ ] App absent from the Cmd-Tab switcher
 - [ ] Corner card appears on the Space you are currently on, not only the
       one it was created on
 - [ ] Corner card does not steal focus while typing (verified on Windows,
@@ -53,6 +62,27 @@ Phase 2 exists:
 - [ ] Login item survives a reboot and appears under System Settings →
       General → Login Items
 - [ ] Menu-bar icon legible in a **light** menu bar as well as dark
+- [ ] Everything in Phase 3a: see the macOS section of
+      `docs/manual-verification.md`, which the settings window and the pack
+      editor added to.
+
+### Known cosmetic issue, deferred deliberately
+
+The reminder popup **appears as a window in Mission Control**, titled "Water
+Reminder" (found 2026-08-28, v0.1.5). Cosmetic only, and not an escape route:
+Mission Control offers no way to dismiss it, and because the popup carries
+`setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })` it follows
+you to whichever Space you switch to. The promise holds.
+
+Electron 33 exposes the fix — `BrowserWindow.setHiddenInMissionControl()`,
+darwin-only, added in Electron 25. It was **not** done during Phase 3a: the
+call belongs in `src/main/windows.ts`, the one file whose exact current
+combination was verified on 2026-08-27 as floating above a genuine fullscreen
+app at every stage. The new call is additive rather than a relaxation of any
+of the three protected properties, but its interaction with
+`visibleOnAllWorkspaces` is undocumented, it cannot be verified from Windows,
+and a regression there costs the core promise to gain a cosmetic nicety. Give
+it its own task and its own `.dmg` after 3a merges.
 
 ## Deferred findings from the Phase 1 final review
 
@@ -68,15 +98,6 @@ triage, and are listed here so they are not rediscovered from scratch.
   using the default delay and only the arrow opening the choices. As built,
   the whole button opens the choices. The v0.1.3 in-row swap changed the
   shape of this; revisit when the settings UI lands.
-- **Tray tooltip shows the countdown, not progress.** Spec §12 says it
-  should show `1.2 / 2.5 L`. Hydration progress currently appears nowhere in
-  the tray, so `Drink now` gives no feedback.
-- **Config version migration hook.** `normalizeConfig` ignores the incoming
-  `version` and unconditionally stamps `CONFIG_VERSION`. There is no
-  migration branch, so when Phase 3 changes the config shape, older files
-  will already have been rewritten claiming the new version. Read
-  `r.version` and branch, even if the only branch today is identity.
-  **Do this before shipping any config change.**
 
 ### Fixed after Phase 1
 
@@ -97,23 +118,61 @@ triage, and are listed here so they are not rediscovered from scratch.
 
 ### Correctness, low reachability
 
-- **`mlOnDay` does not type-check `ml`.** It sums `e.ml ?? 0`; a hand-edited
-  `"ml": "250"` in `intake.jsonl` would corrupt the total via string
-  concatenation. Only reachable by hand-editing — a mid-write kill produces
-  unparsable JSON, which `parseLog` already skips.
-- **`currentStreak` has no floor on `goalMl`.** A caller passing
-  `goalMl <= 0` would count every day as met and walk backwards until dates
-  stop being representable — a hang in a background process. Unreachable
-  today because config clamps `goalMl` to >= 250. One line closes it:
-  `if (goalMl <= 0) return 0;`
-- **No DST test for `addLocalDays`.** DST safety is the stated reason the
-  function exists, and it is now load-bearing for "pause until tomorrow" in
-  the tray. Not written because the dev machine's timezone (Asia/Kolkata)
-  has no DST, so the test needs TZ manipulation before Node caches the zone.
-  This is an outstanding commitment from spec §14.
-- **`nextDueAt` is not persisted across restarts.** Every relaunch postpones
-  the next reminder by a full interval. With autostart on and a user who
-  quits and relaunches, reminders drift indefinitely later.
+Nothing left here: every item that was in this section was closed in Phase
+3a. See *Fixed in Phase 3a*.
+
+### Fixed in Phase 3a
+
+All on `feat/phase-3a`, 2026-08-27 to 2026-08-29. Test count 104 -> 208.
+
+- **The schedule is editable, and can be overnight or always-on.**
+  `normalizeSchedule` used to require `workEndMinute > workStartMinute` and
+  silently fall back to the default window otherwise, so a 22:00-02:00
+  schedule was discarded without a word. It now rejects only an *empty*
+  window where start equals end — that one would make the app never fire
+  again. The other half of the "Due now" complaint from v0.1.4.
+- **Config version migration hook.** `src/core/migrate.ts` reads the incoming
+  `version` and branches. Config is at v2; `customLines` moved out to
+  `<userData>/packs/custom.json`, and the version is stamped only after that
+  file is written, so a failed write retries next launch instead of claiming
+  a migration that did not happen.
+- **`nextDueAt` is persisted across restarts.** A stored future value is
+  adopted as-is; a stored past value produces exactly one reminder on the
+  first tick rather than a burst, matching what wake-from-sleep already did.
+  Reminders no longer walk later every time the app is relaunched.
+- **Tray tooltip shows hydration progress,** `1.2 / 4.0 L`, before the
+  countdown. `Drink now` had no feedback at all before this.
+- **`mlOnDay` type-checks `ml`,** so a hand-edited `"ml": "250"` cannot
+  concatenate into the daily total.
+- **`currentStreak` returns 0 for a non-positive goal** instead of walking
+  backwards until dates stop being representable. This one really did hang:
+  the test that proves it killed the vitest worker before the fix landed.
+- **The DST test for `addLocalDays` exists** (`tests/core/dst.test.ts`), the
+  outstanding commitment from spec §14. `process.env.TZ` assigned in
+  `beforeAll` does take effect under Node 22 and vitest 2.1 on Windows — the
+  documented worry about Node caching the zone turned out not to bite. The
+  file opens by asserting the day lengths either side of both transitions,
+  because without that guard every assertion in it passes trivially in a
+  fixed-offset zone like the dev machine's.
+- **`dndUntil` is cleared when a pause expires naturally,** which closes the
+  "two sources of truth for paused" item: nothing used to clear it, so the
+  tray's Resume item and the countdown label agreed only by accident. An
+  open settings window is told as well.
+- **A pack that fails to load is a visible row** in the Packs pane with the
+  parser's own message, instead of a personality that silently disappears
+  behind `"Time to drink water."`.
+- **Pack ids from the renderer are validated before they reach the
+  filesystem.** Three IPC channels build a path from an id and one of them
+  deletes with `{ force: true }`; an id of `../config` on the revert channel
+  would have taken out the user's config file, silently.
+
+### Still open, and now more likely to matter
+
+- **`aria-live` on the popup message** — unchanged by 3a. The settings panes
+  were built with labels and `aria-pressed`, so the popup is now the least
+  accessible surface in the app.
+- **Snooze split-button behaviour** — the settings UI has landed, so the
+  "revisit when the settings UI lands" condition on this one has been met.
 
 ### Cosmetic and structural
 
@@ -124,22 +183,22 @@ triage, and are listed here so they are not rediscovered from scratch.
   only showing after a renderer ack.
 - **`hide()` does not clear `this.pending`,** so a show→hide before load
   still delivers a stale payload.
-- **`onShow` has no cleanup** and the preload bridge exposes no
+- **`onShow` has no cleanup** and the popup preload bridge exposes no
   `removeListener`, so listeners accumulate per mount. Inert in production
   (one mount for the window's life) but double-registers under StrictMode in
-  dev.
+  dev. The settings preload added in 3a does return a remover from
+  `onChanged`, deliberately — same fix, and the popup still needs it.
 - **`readEvents()` reads the whole JSONL synchronously on every show
-  effect.** Fine at ~10 events/day; revisit only if a log rotation story
+  effect,** and now on every tray refresh as well, since the tooltip shows
+  progress. Fine at ~10 events/day; revisit only if a log rotation story
   appears.
-- **Two sources of truth for "paused"** in `tray.ts`: `countdownLabel` reads
-  `state().phase` while the Resume item's enablement reads
-  `config.dndUntil`. They agree today only because nothing clears
-  `dndUntil` on natural expiry. Use `state.phase === 'paused'` for both.
 
 ### Architecture, deferred deliberately
 
 - **Nothing in `src/main`, `src/preload`, or `src/renderer` is tested.** All
-  104 tests are `tests/core/**` and `tests/packs`. The final review
+  208 tests are `tests/core/**` and `tests/packs`. Phase 3a held that line
+  on purpose: whenever a pane wanted a test, the logic moved into
+  `src/core/` instead — `ladder.ts`, `packtext.ts`, `packvalidate.ts`. The final review
   recommended extracting the last decisions out of the shell —
   `countdownLabel`, the payload builder in `applyEffects`, and the
   mode→focus/level policy in `windows.ts` — into `src/core/` where they can
@@ -162,8 +221,10 @@ was underspecified, and they produced real bugs:
 - **§8's fullscreen row said "fills the display"** while the code passed the
   work area, leaving the menu bar clickable during the takeover stage.
 
-Fix the spec during Phase 3's pack work so the next plan argues from
-something correct.
+**All three were fixed in the spec on 2026-08-29**, during Phase 3a's Task 16.
+§8 now says the fullscreen stage takes the display *bounds* and that a ladder
+may outrun its packs; §9 now says folding is bidirectional. §11 describes
+config v2 and the user packs directory, and §15 records the 3a/3b split.
 
 ## Tauri: investigated and rejected for now
 
@@ -240,14 +301,30 @@ terminal.
 
 ## Editing packs
 
-`npm test` validates pack JSON in about a second — it checks parse validity,
-the 60-line minimum, duplicates, blank lines, stage coverage, and that no
-line follows `{{glasses}}` with a hardcoded plural noun.
+There are two places a pack can live:
 
-**Run it after every pack edit.** If the JSON is malformed at startup,
-`loadPacks` catches the parse error and silently skips the pack, so the app
-falls back to `"Time to drink water."` with no error shown anywhere — the
-personality just appears to vanish.
+- `packs/*.json` in the repo — what the app ships. Four packs as of 3a:
+  sarcastic, drill-sergeant, wholesome, deadpan. Read-only at runtime; inside
+  the `.app` bundle in a packaged build.
+- `<userData>/packs/*.json` — the user's own, editable from Settings → Packs
+  and reachable with the **Reveal packs folder** button there. On macOS that
+  is `~/Library/Application Support/water-reminder/packs/`. A user file
+  **replaces** a shipped pack of the same id wholesale — no merging, a pack
+  is either yours or the app's. Editing a shipped pack copies it here first;
+  *Revert to shipped* deletes the copy.
+
+`npm test` validates pack JSON in about a second — parse validity,
+duplicates, blank lines, stage coverage, no window mode named in any line,
+and no `{{glasses}}` followed by a hardcoded plural noun. The 60-line minimum
+applies to sarcastic only; the other shipped packs need 20. The editor
+deliberately enforces **no** minimum, so nobody is refused permission to trim
+their own copy of a pack.
+
+**Run it after every pack edit.** A malformed pack used to be invisible:
+`loadPacks` caught the parse error and skipped the pack, so the app fell back
+to `"Time to drink water."` with nothing shown anywhere. As of 3a the Packs
+pane shows the parser's message against that pack, but a pack that is valid
+JSON and bad copy is still only caught by the test.
 
 Template variables: `{{glasses}}`, `{{glassWord}}` (agrees with the count),
 `{{streak}}`, `{{goalPct}}`.

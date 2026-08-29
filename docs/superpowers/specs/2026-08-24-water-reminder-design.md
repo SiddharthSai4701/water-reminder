@@ -163,6 +163,9 @@ Rules:
   holds at every annoyance level, including the gentlest.
 - Any mode may appear at any position. A user may configure a single corner
   stage, or corner→center with no fullscreen, or a longer ladder.
+- **A ladder may have more stages than any installed pack tags lines for.**
+  Nothing constrains the two to match, and nothing should: the ladder is the
+  user's and the packs are data. §9 says what the picker does about it.
 
 ### Presets
 
@@ -189,7 +192,13 @@ remaining the behavior most new users would expect.
 |---|---|---|---|
 | `corner` | ~320×140, screen corner (corner configurable) | **never steals focus** (`showInactive`) | above normal windows |
 | `center` | ~520×320, centered on active display | takes focus | above normal windows |
-| `fullscreen` | fills the display under the cursor | takes focus | `screen-saver` level, floats above fullscreen apps |
+| `fullscreen` | fills the display **bounds** under the cursor, not its work area | takes focus | `screen-saver` level, floats above fullscreen apps |
+
+The fullscreen stage takes the display's **bounds**, not its work area. The
+work area excludes the menu bar and the dock, which would leave both clickable
+during the takeover stage — the one stage whose entire purpose is that there is
+nothing else to click. This was written as "fills the display" and produced
+exactly that bug.
 
 Dimming the *other* displays during the fullscreen stage is deferred to Phase
 3. Phase 1 covers one display, chosen by cursor position at show time.
@@ -218,13 +227,19 @@ Packs are data, not code — `packs/*.json`:
   ascending). Untagged lines are eligible at every stage. Lines tagged for
   later stages are blunter and louder.
 - Stage tags are indices into the user's ladder, not fixed window modes, so
-  tone still escalates correctly on a two-stage or five-stage ladder. A line
-  tagged for a stage beyond the ladder's length falls back to the last stage.
+  tone still escalates correctly on a two-stage or five-stage ladder.
+- **Folding is bidirectional.** A line tagged for a stage beyond the ladder's
+  length folds *down* onto the last stage. And a stage that no active pack
+  tags any line for falls *back* to the closest tagged stage below it, rather
+  than emptying the pool. Specifying only the first direction produced a real
+  bug: on a ladder longer than the packs, the loudest stage — the one that
+  matters most — dropped to the generic "Time to drink water." fallback.
 - Shipped packs: **Sarcastic** (flagship, default-on, **60+ lines minimum**),
   Drill Sergeant, Wholesome, Deadpan (~20 lines each).
 - Multiple packs may be active at once; lines pool across them.
-- **Custom pack**: user-authored lines, edited in settings, stored in config,
-  identical schema.
+- **Custom pack**: user-authored lines, edited in settings. Stored as a pack
+  file in the user packs directory, not in config — see §11. Identical schema
+  to a shipped pack.
 - Selection avoids the last 8 lines used, so repeats do not become wallpaper.
 - Template variables (`{{glasses}}`, `{{streak}}`, `{{goalPct}}`) are resolved
   at render time, enabling context-aware lines.
@@ -233,7 +248,7 @@ Tone reference for the sarcastic pack:
 
 - "Your kidneys filed a complaint."
 - "Cactus called. Wants its lifestyle back."
-- "{{glasses}} glasses today. Bold strategy."
+- "{{glasses}} {{glassWord}} today. Bold strategy."
 - "Coffee is not water. It is water with a debt attached."
 - "Blink twice if you are hydrated. You did not blink."
 - "Still here. Still thirsty. Still your problem."
@@ -267,14 +282,29 @@ Location: `~/Library/Application Support/water-reminder/` on macOS,
 `%APPDATA%\water-reminder\` on Windows.
 
 `config.json` — via electron-store, schema-validated and versioned for
-migrations:
+migrations. **Currently version 2:**
 
-- interval minutes, work-hours window, quiet hours, weekday/weekend variants
+- interval minutes and the work-hours window, which may wrap past midnight
+  (an overnight window) or cover the whole day (00:00-24:00, the default)
 - escalation ladder (see §8) and preset name
 - daily goal in ml, glass size in ml
-- active pack ids, custom lines
+- active pack ids
 - theme, mascot on/off, sound settings
 - autostart on/off, DND state and expiry
+- `nextDueAt`, the epoch ms of the next reminder, so a relaunch resumes the
+  schedule instead of re-arming a full interval from launch time
+
+Version 2 dropped `customLines`. User-authored lines were held in config in
+v1; they now live beside every other pack as `<userData>/packs/custom.json`,
+so one editor and one schema cover all packs. The migration runs on load and
+persists the new version **only after** the pack file is written — a failed
+write leaves the file at v1 so the next launch retries, rather than stamping
+v2 over lines that were never saved.
+
+`<userData>/packs/*.json` — the user's own packs. A user file replaces a
+shipped pack of the same id wholesale; there are no merge semantics, so a
+pack is either yours or the app's. Editing a shipped pack in settings copies
+it here first, and *Revert to shipped* deletes the copy.
 
 `intake.jsonl` — append-only, one JSON object per line:
 
@@ -295,7 +325,7 @@ calendar days.
 
 Tray menu: countdown to next reminder · `Drink now` (logs without a popup) ·
 `Pause 30m / 1h / until tomorrow` · `Settings` · `Quit`. Tooltip shows
-progress, e.g. `1.2 / 2.5 L`.
+progress, e.g. `1.2 / 4.0 L`.
 
 No dock or taskbar presence: `app.dock.hide()` plus `LSUIElement: true` in
 Info.plist on macOS, `skipTaskbar` on Windows.
@@ -336,11 +366,14 @@ Development follows TDD: tests precede implementation.
 |---|---|
 | **1** | Core loop: tray, scheduler, all three window modes, configurable ladder with presets, drink/snooze/skip, config store, intake log, sarcastic pack, autostart. Verified on Windows. |
 | **2** | macOS verification pass: window levels above Spaces and fullscreen apps, `LSUIElement`, login item, `.app` build. First real daily use. |
-| **3** | Personalization: settings UI, all packs plus custom lines, themes, mascot states, goals, streaks, stats view. |
+| **3a** | Settings window, config v2 and its migration, editable schedule (including overnight and always-on), escalation presets and custom ladders, the pack editor and the remaining three packs. |
+| **3b** | Themes, mascot states, sound, and the stats view. Deferred until 3a has been in daily use, so the polish is aimed at real complaints. |
 | **4** | Smart pause: microphone-in-use and meeting-app detection, fullscreen-app detection, idle detection. Suppresses escalation rather than the reminder itself. |
 
-Phases 1 and 2 produce a usable app. Phase 3 makes it personal. Phase 4 is
-the deferred polish.
+Phases 1 and 2 produce a usable app. Phase 3 makes it personal, and was split
+once its scope was clear: 3a is everything the app needs before it can be
+configured without a text editor, and 3b is what is worth choosing only after
+living with 3a. Phase 4 is the deferred polish.
 
 ## 16. Open Questions
 
