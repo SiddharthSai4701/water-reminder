@@ -10,7 +10,6 @@
     { "text": "Water first, then whatever comes next.", "stage": [0] },
     { "text": "You have earned two minutes and a cold glass.", "stage": [0] },
     { "text": "Hope the day is going gently. Have some water.", "stage": [0] },
-    { "text": "Still thinking of you. Still hoping you drink something.", "stage": [1] },
     { "text": "{{goalPct}}% of the way there. Every glass counts.", "stage": [1] },
     { "text": "No rush, but your water is waiting.", "stage": [1] },
     { "text": "It is okay to stop for a moment. Really.", "stage": [1] },
