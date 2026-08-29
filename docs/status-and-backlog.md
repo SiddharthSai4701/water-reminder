@@ -240,12 +240,75 @@ config v2 and the user packs directory, and §15 records the 3a/3b split.
 ## Tauri: investigated and rejected for now
 
 The spec names Tauri as the upgrade path if idle resource use becomes a
-problem. It was investigated on 2026-08-25 after the install size (~246 MB,
-~205 MB after trimming Chromium locales) came up. **Do not port yet.**
+problem. It was investigated on 2026-08-25 after the install size came up.
+**Do not port yet** — the reasons below still stand.
 
-What the size actually is: ~181 MB Electron binary, ~41 MB Chromium locales
-(now trimmed to `en-US`), ~20 MB graphics libraries, and **2.6 MB of this
-app**. Roughly 99% runtime.
+## Install size, measured
+
+Every number in this section before 2026-08-29 was an estimate, and one of
+them was wrong in a way that cost 40 MB for months. The build now prints a
+size breakdown on every run (the *Report bundle size* step), so these are
+measurements.
+
+| | v0.1.6 as released | after the 2026-08-29 fix |
+|---|---|---|
+| `.dmg` | 96 MB | **82 MB** |
+| installed `.app` | 235 MB | **195 MB** |
+
+What the 195 MB is:
+
+| Component | Size |
+|---|---|
+| `Electron Framework` binary | 149 MB |
+| `libvk_swiftshader.dylib` | 16 MB |
+| `icudtl.dat` | 10 MB |
+| `libGLESv2.dylib` (ANGLE) | 7 MB |
+| `resources.pak` | 6 MB |
+| **this entire app** (`app.asar`) | **3 MB** |
+
+**The 40 MB that should not have been there.** `electronLanguages: ['en-US']`
+was set in the build config and did nothing — every build up to and including
+v0.1.6 shipped all 55 `.lproj` directories. This file claimed since Phase 1
+that locales were "trimmed to en-US"; the setting was added, the result was
+never measured, and the claim was wrong for every release. They are now pruned
+in `scripts/adhoc-sign.cjs`, before the ad-hoc signature is applied, because
+changing a byte inside the bundle after signing makes macOS report the app as
+*damaged*. The build verifies the signature afterwards for that reason, and
+counts the surviving `.lproj` directories so this cannot come back quietly.
+
+The `.dmg` also moved from zlib to `ULFO` (lzfse). Every arm64 Mac is on macOS
+11 or later, so that format's 10.11 floor is not a constraint.
+
+**What is left, and why it is not being taken.**
+
+- `libvk_swiftshader.dylib`, 16 MB, is Chromium's software rasterizer — the
+  fallback when GPU acceleration is unavailable. Deleting it is a common trick
+  and would take the app to ~179 MB. Not done: the failure mode is a window
+  that does not paint, on a machine we cannot predict, and this app's entire
+  promise is that a window appears. 8% is not worth a silent blank popup.
+- `icudtl.dat` and the ANGLE library cannot be removed without building
+  Electron from source with `small-icu`, which is a maintenance burden far
+  larger than 17 MB.
+- The 149 MB framework binary is Chromium. It is irreducible.
+
+So **~195 MB is the floor for this app on Electron**, and 99% of it is runtime
+the app does not control. Getting materially below it means not being an
+Electron app:
+
+- **Tauri** — see below. The core promise is the blocker, not the size.
+- **A native Swift menu-bar app** would be around 5 MB, and `NSWindow.level`
+  plus `collectionBehavior` are first-class rather than something reached
+  through a plugin. The blocker is not technical: the dev machine is Windows,
+  and a Swift app cannot be built, run, or debugged there. Phase 1 through 3a
+  were all developed on Windows and verified on the Mac afterwards, which is
+  only possible because the toolchain is cross-platform.
+
+For scale, since "266 MB for a reminder app" is the honest complaint: Slack is
+around 400 MB installed, VS Code around 350 MB, Discord around 300 MB. That is
+not a defence of the size, only a note that it is the price of the runtime
+rather than anything this app is doing.
+
+Why the Tauri port is riskier than it looks:
 
 Why the port is riskier than it looks:
 
