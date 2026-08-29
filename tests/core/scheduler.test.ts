@@ -233,6 +233,32 @@ describe('overnight work windows', () => {
     expect(isWithinWorkHours(new Date(2026, 7, 24, 23, 30).getTime(), mondayOnly)).toBe(true);
     expect(isWithinWorkHours(new Date(2026, 7, 25, 1, 0).getTime(), mondayOnly)).toBe(false);
   });
+
+  /**
+   * The definition of done asks that an overnight schedule *fires* after
+   * midnight, which is a different claim from isWithinWorkHours returning true
+   * there. Everything above tests the predicate; these drive the same one-second
+   * tick the app runs, across the rollover, and assert the popup actually shows.
+   */
+  const nightCfg: SchedulerConfig = { ...cfg, intervalMinutes: 30, ...night };
+
+  it('fires after midnight inside a wrapping window', () => {
+    const before = new Date(2026, 7, 24, 23, 45).getTime();
+    const state = createInitialState(before, nightCfg);
+    // Armed at 23:45 + 30m = 00:15, which is on the other side of midnight.
+    const out = run(state, [before, before + 30 * MIN, before + 30 * MIN + 1000], nightCfg);
+    expect(new Date(state.nextDueAt).getDate()).toBe(25);
+    expect(out.effects.some((e) => e.type === 'show')).toBe(true);
+  });
+
+  it('holds in the small hours once the window has closed', () => {
+    // 03:00 is outside 22:00-02:00. The scheduler must hold rather than fire,
+    // and holding is exactly what the v0.1.4 "Due now" report turned out to be.
+    const after = new Date(2026, 7, 25, 3, 0).getTime();
+    const state = createInitialState(after, nightCfg);
+    const out = run(state, [after, after + 30 * MIN, after + 60 * MIN], nightCfg);
+    expect(out.effects.some((e) => e.type === 'show')).toBe(false);
+  });
 });
 
 describe('persisted nextDueAt', () => {
