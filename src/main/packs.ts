@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readPackShape } from '../core/packfile.js';
 import type { Pack } from '../shared/types.js';
 
 export interface PackLoadError {
@@ -29,6 +30,15 @@ export function ensureUserPacksDir(): void {
 
 export function hasUserPack(id: string): boolean {
   return existsSync(join(userPacksDir(), `${id}.json`));
+}
+
+/**
+ * Whether the app ships a pack with this id. Revert deletes the user file and
+ * leaves whatever is underneath, so with no shipped file underneath there is
+ * nothing to revert *to* — it is a permanent delete wearing the wrong word.
+ */
+export function hasShippedPack(id: string): boolean {
+  return existsSync(join(shippedPacksDir(), `${id}.json`));
 }
 
 export function writeUserPack(id: string, pack: Pack): boolean {
@@ -77,11 +87,17 @@ function readPack(id: string): { pack: Pack | null; error: string | null } {
   for (const path of candidates) {
     if (!existsSync(path)) continue;
     try {
-      return { pack: JSON.parse(readFileSync(path, 'utf8')) as Pack, error: null };
+      // Shape-checked, not cast. `as Pack` is a promise the file never made:
+      // {"id":"x","name":"X"} parses fine and then throws from inside the
+      // one-second tick, where nothing can report it.
+      return readPackShape(JSON.parse(readFileSync(path, 'utf8')), id);
     } catch (error) {
       // Surfaced rather than swallowed: a malformed pack used to make the
-      // personality silently vanish behind the generic fallback line.
-      return { pack: null, error: error instanceof Error ? error.message : String(error) };
+      // personality silently vanish behind the generic fallback line. Prefixed
+      // with the filename here, the way readPackShape prefixes its own, so the
+      // pane can print either verbatim without knowing which kind it is.
+      const message = error instanceof Error ? error.message : String(error);
+      return { pack: null, error: `${id}.json — ${message}` };
     }
   }
   return { pack: null, error: null };

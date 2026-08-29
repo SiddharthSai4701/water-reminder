@@ -123,7 +123,8 @@ Nothing left here: every item that was in this section was closed in Phase
 
 ### Fixed in Phase 3a
 
-All on `feat/phase-3a`, 2026-08-27 to 2026-08-29. Test count 104 -> 208.
+All on `feat/phase-3a`, 2026-08-27 to 2026-08-29. Test count 118 on `master`
+-> 208 on the branch. (Phase 1 merged with 104; v0.1.4's fixes took it to 118.)
 
 - **The schedule is editable, and can be overnight or always-on.**
   `normalizeSchedule` used to require `workEndMinute > workStartMinute` and

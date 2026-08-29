@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Config, PackSummary } from '../../shared/types.js';
 
 interface Props {
@@ -6,6 +6,12 @@ interface Props {
   packs: PackSummary[];
   setPacks: (packs: PackSummary[]) => void;
   patch: (partial: Partial<Config>) => Promise<void>;
+  /**
+   * Reported upward because this pane is unmounted when the user clicks
+   * another section, which would drop a half-written pack with no prompt.
+   * Settings asks before it switches.
+   */
+  onDirtyChange: (dirty: boolean) => void;
 }
 
 /** The shape `settings:packs:write` reports failures in. */
@@ -22,7 +28,13 @@ function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export default function PacksPane({ config, packs, setPacks, patch }: Props): JSX.Element {
+export default function PacksPane({
+  config,
+  packs,
+  setPacks,
+  patch,
+  onDirtyChange,
+}: Props): JSX.Element {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [text, setText] = useState('');
   // What the file held when the editor opened, so "unsaved" is a fact rather
@@ -34,6 +46,25 @@ export default function PacksPane({ config, packs, setPacks, patch }: Props): JS
   const editing = packs.find((p) => p.id === editingId) ?? null;
   const dirty = editingId !== null && text !== saved;
   const anyBroken = packs.some((p) => p.error !== undefined);
+
+  /**
+   * Active ids that resolve to a pack the app can actually read lines from.
+   *
+   * `config.activePackIds` is not that list. Nothing prunes an id whose file
+   * has been deleted or gone unreadable — `normalizeConfig` only objects to an
+   * empty array — so counting it lets the last *working* pack be turned off
+   * while the count still looks like two. Every reminder then falls back to
+   * "Time to drink water." with nothing said anywhere.
+   */
+  const activeAndReadable = config.activePackIds.filter((id) =>
+    packs.some((p) => p.id === id && p.error === undefined),
+  );
+
+  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
+  // Unmount only. Without this, Settings keeps its last `true` after the pane
+  // is gone and asks about an editor that no longer exists, every time the
+  // user changes section.
+  useEffect(() => () => onDirtyChange(false), [onDirtyChange]);
 
   function reset(): void {
     setEditingId(null);
@@ -85,7 +116,11 @@ export default function PacksPane({ config, packs, setPacks, patch }: Props): JS
 
   async function revert(id: string): Promise<void> {
     if (
-      !window.confirm('Replace your copy with the pack the app ships? Your edits to it are deleted.')
+      !window.confirm(
+        editingId === id
+          ? 'Replace your copy with the pack the app ships? Your edits, including anything unsaved in the editor, are deleted.'
+          : 'Replace your copy with the pack the app ships? Your edits to it are deleted.',
+      )
     ) {
       return;
     }
@@ -101,12 +136,16 @@ export default function PacksPane({ config, packs, setPacks, patch }: Props): JS
   }
 
   function toggleActive(id: string): void {
-    const next = config.activePackIds.includes(id)
+    const turningOff = config.activePackIds.includes(id);
+    const next = turningOff
       ? config.activePackIds.filter((packId) => packId !== id)
       : [...config.activePackIds, id];
-    // normalizeConfig replaces an empty activePackIds with the default pack, so
-    // an unchecked last box comes back checked with nothing said about why.
-    // Refuse it here, where the note below can explain the refusal.
+    // Two reasons to refuse, and they are not the same reason. An empty list
+    // comes back as the default pack, because that is what normalizeConfig
+    // does — the box would simply re-check itself. A list that is non-empty
+    // but holds nothing readable is worse: it is accepted, and every reminder
+    // quietly becomes the generic fallback line.
+    if (turningOff && activeAndReadable.length <= 1 && activeAndReadable.includes(id)) return;
     if (next.length === 0) return;
     void patch({ activePackIds: next });
   }
@@ -134,12 +173,19 @@ export default function PacksPane({ config, packs, setPacks, patch }: Props): JS
             {pack.error === undefined ? (
               <span className="note">{`${pack.lineCount} lines`}</span>
             ) : (
-              // Verbatim, including the id: the message is a parser error about
-              // a file, and the user has to find the file to fix it.
-              <span className="pack-broken">{`${pack.id}.json — ${pack.error}`}</span>
+              // Verbatim: main already names the file in the message, because
+              // the user has to find the file to fix it.
+              <span className="pack-broken">{pack.error}</span>
             )}
 
-            {pack.customised && <span className="badge">Customised</span>}
+            {pack.customised && (
+              // "Customised" means a shipped pack with your edits over it, and
+              // Revert puts the app's version back. A pack that exists only in
+              // your folder has nothing under it, so it says so and gets no
+              // Revert button — deleting it would destroy the only copy, which
+              // is exactly what the v1 migration's Custom pack is.
+              <span className="badge">{pack.shipped ? 'Customised' : 'Yours'}</span>
+            )}
 
             <span className="pack-actions">
               <button
@@ -149,7 +195,7 @@ export default function PacksPane({ config, packs, setPacks, patch }: Props): JS
               >
                 Edit
               </button>
-              {pack.customised && (
+              {pack.customised && pack.shipped && (
                 <button type="button" className="danger" onClick={() => void revert(pack.id)}>
                   Revert to shipped
                 </button>
@@ -159,9 +205,21 @@ export default function PacksPane({ config, packs, setPacks, patch }: Props): JS
         ))}
       </ul>
 
-      {config.activePackIds.length === 1 && (
+      {activeAndReadable.length <= 1 && (
         // The same rule, and the same reason, as the schedule's last day.
-        <p className="note">At least one pack has to stay on, so the last one cannot be cleared.</p>
+        <p className="note">
+          At least one working pack has to stay on, so the last one cannot be cleared.
+        </p>
+      )}
+
+      {config.activePackIds.length > activeAndReadable.length && (
+        // An active id with no readable file behind it is invisible in the
+        // list above, and it is the reason the count you can see disagrees
+        // with the count the refusal above is using.
+        <p className="note">
+          {`${config.activePackIds.length - activeAndReadable.length} active pack(s) could not be
+            read, and are not listed. Reminders use only the packs shown above.`}
+        </p>
       )}
 
       {anyBroken && (
@@ -184,7 +242,13 @@ export default function PacksPane({ config, packs, setPacks, patch }: Props): JS
             spellCheck={false}
             rows={16}
             value={text}
-            onChange={(e) => setText(e.currentTarget.value)}
+            onChange={(e) => {
+              setText(e.currentTarget.value);
+              // The issues name line numbers. One keystroke can move every
+              // line they point at, and a number pointing at the wrong line is
+              // worse than none — the whole reason atSourceLines exists.
+              if (issues.length > 0) setIssues([]);
+            }}
           />
 
           {issues.length > 0 && (

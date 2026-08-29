@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Config, PackSummary } from '../shared/types.js';
 import EscalationPane from './panes/Escalation.js';
 import GeneralPane from './panes/General.js';
@@ -18,6 +18,24 @@ export default function Settings(): JSX.Element {
   const [config, setConfig] = useState<Config | null>(null);
   const [packs, setPacks] = useState<PackSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // The pack editor is the only thing in settings that holds work instead of
+  // applying it, so it is the only thing a section change can throw away.
+  const [packDirty, setPackDirty] = useState(false);
+
+  // Stable, or the pane's effect re-runs on every render of this component.
+  const onDirtyChange = useCallback((dirty: boolean) => setPackDirty(dirty), []);
+
+  function selectPane(name: Pane): void {
+    if (
+      pane === 'Packs' &&
+      name !== 'Packs' &&
+      packDirty &&
+      !window.confirm('Leave the pack editor? Your unsaved changes to that pack are discarded.')
+    ) {
+      return;
+    }
+    setPane(name);
+  }
 
   useEffect(() => {
     window.waterSettings
@@ -57,7 +75,7 @@ export default function Settings(): JSX.Element {
             key={name}
             className={name === pane ? 'active' : ''}
             aria-current={name === pane ? 'page' : undefined}
-            onClick={() => setPane(name)}
+            onClick={() => selectPane(name)}
           >
             {name}
           </button>
@@ -74,7 +92,13 @@ export default function Settings(): JSX.Element {
         {pane === 'Escalation' && <EscalationPane config={config} patch={patch} />}
         {pane === 'Hydration' && <HydrationPane config={config} patch={patch} />}
         {pane === 'Packs' && (
-          <PacksPane config={config} packs={packs} setPacks={setPacks} patch={patch} />
+          <PacksPane
+            config={config}
+            packs={packs}
+            setPacks={setPacks}
+            patch={patch}
+            onDirtyChange={onDirtyChange}
+          />
         )}
         {pane === 'General' && <GeneralPane config={config} patch={patch} />}
       </main>

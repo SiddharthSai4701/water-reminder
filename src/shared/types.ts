@@ -79,6 +79,11 @@ export interface PackSummary {
   active: boolean;
   /** A user file exists for this id. Shipped packs start false. */
   customised: boolean;
+  /**
+   * The app ships a pack with this id. False means the user file is the only
+   * copy there is, so deleting it is not a revert — there is nothing under it.
+   */
+  shipped: boolean;
   /** Present when the file failed to load; the pane shows it verbatim. */
   error?: string;
 }

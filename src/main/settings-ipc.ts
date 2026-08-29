@@ -5,6 +5,7 @@ import type { Config, Pack, PackSummary, PackWriteResult } from '../shared/types
 import {
   deleteUserPack,
   ensureUserPacksDir,
+  hasShippedPack,
   hasUserPack,
   listPackIds,
   loadPacksWithErrors,
@@ -47,6 +48,7 @@ function summaries(config: Config): PackSummary[] {
       lineCount: pack?.lines.length ?? 0,
       active: config.activePackIds.includes(id),
       customised: hasUserPack(id),
+      shipped: hasShippedPack(id),
       error: errorById.get(id),
     };
   });
@@ -92,6 +94,12 @@ export function registerSettingsIpc(deps: SettingsIpcDeps): void {
 
   ipcMain.handle('settings:packs:revert', (_e, id: string) => {
     if (!isSafeId(id)) return summaries(deps.config());
+    // Revert deletes the user file and lets the shipped one show through. With
+    // no shipped file there is nothing underneath, so this would be a
+    // permanent delete of the only copy — which is what the v1 migration's
+    // `custom` pack is. The pane does not offer the button in that case; this
+    // is the boundary refusing to do it even if asked.
+    if (!hasShippedPack(id)) return summaries(deps.config());
     deleteUserPack(id);
     deps.reloadPacks();
     return summaries(deps.config());
