@@ -45,7 +45,9 @@ function eventsOnDay(events: LogEvent[], dayStart: number): LogEvent[] {
 export function mlOnDay(events: LogEvent[], dayStart: number): number {
   return eventsOnDay(events, dayStart)
     .filter((e) => e.type === 'drank')
-    .reduce((sum, e) => sum + (e.ml ?? 0), 0);
+    // Type-checked, not just defaulted: a hand-edited "ml": "250" would
+    // otherwise concatenate into the total.
+    .reduce((sum, e) => sum + (typeof e.ml === 'number' && Number.isFinite(e.ml) ? e.ml : 0), 0);
 }
 
 export function glassesOnDay(events: LogEvent[], dayStart: number): number {
@@ -62,6 +64,11 @@ export function goalPct(ml: number, goalMl: number): number {
  * has met the goal, but an incomplete today never breaks a running streak.
  */
 export function currentStreak(events: LogEvent[], goalMl: number, now: number): number {
+  // Without this a non-positive goal makes every day count as met, and the
+  // loop walks backwards until dates stop being representable — a hang in a
+  // process the user cannot see.
+  if (goalMl <= 0) return 0;
+
   const today = startOfLocalDay(now);
   let streak = 0;
   let day = today;

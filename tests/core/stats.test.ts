@@ -95,3 +95,20 @@ describe('currentStreak', () => {
     expect(currentStreak(events, GOAL, NOW)).toBe(1);
   });
 });
+
+describe('hardening', () => {
+  it('ignores a non-numeric ml rather than concatenating it', () => {
+    const day = startOfLocalDay(new Date(2026, 7, 24, 12, 0).getTime());
+    const events = [
+      { ts: day + 1000, type: 'drank' as const, ml: 250 },
+      { ts: day + 2000, type: 'drank' as const, ml: '250' as unknown as number },
+    ];
+    expect(mlOnDay(events, day)).toBe(250);
+  });
+
+  it('returns no streak for a non-positive goal', () => {
+    const now = new Date(2026, 7, 24, 12, 0).getTime();
+    expect(currentStreak([], 0, now)).toBe(0);
+    expect(currentStreak([], -1, now)).toBe(0);
+  });
+});
