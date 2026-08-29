@@ -5,8 +5,8 @@ Branch: `feat/phase-3a`, off `master` @ `1fb9565`
 Plan: `docs/superpowers/plans/2026-08-27-water-reminder-phase-3a.md`
 Spec: `docs/superpowers/specs/2026-08-27-water-reminder-phase-3a-design.md`
 
-**All 16 tasks complete, and Tasks 12–16 have now been reviewed.** Test count:
-**118 on master → 225 on the branch.**
+**All 16 tasks complete, reviewed per-task, then reviewed whole-branch.** Test count:
+**118 on master → 244 on the branch.**
 `typecheck` and `build` clean at every commit, and the build emits both renderer entries
 and both preloads.
 
@@ -21,8 +21,16 @@ See [Issue 9](#issue-9--revert-permanently-deleted-the-user-packs-that-had-no-sh
 onwards. The lesson is not subtle: the self-review found style and one number, and missed
 the thing that destroys a user's own writing.
 
-A **whole-branch** review — 118 tests' worth of `master..HEAD`, not just 12–16 — has still
-not been run.
+The **whole-branch** review (`master..HEAD`, 32 commits, 49 files) then ran on 2026-08-29 and
+found seven more, including one that had survived a per-task review, a self-review and a
+targeted review of the same code: the migration writes the user's custom lines to a file and
+never activates it. See [Issue 14](#issue-14--the-migration-retired-the-users-own-lines)
+onwards.
+
+Three reviews, three different classes of finding. The per-task reviews caught logic inside
+the task; the 12–16 review caught what a task made reachable elsewhere; the whole-branch
+review caught what only shows up when you compare the branch to what it replaced — every one
+of its seven findings is a behaviour that was *correct on master* and is not correct now.
 
 This file records what each task did and every issue found along the way. Issues have
 their own entries in the second half, each linking back to the task it came from.
@@ -752,6 +760,130 @@ which asks before it switches. The window's own close button is still unguarded.
 
 ---
 
+### Issue 14 — The migration retired the user's own lines
+
+**From:** [Task 1](#task-1--config-v2-shape-and-the-migration-hook) and
+[Task 3](#task-3--perform-the-migration-on-load) · **Severity:** High ·
+**Status:** fixed in `887e7cc`
+
+**Problem.** On master, `loadPacks(activeIds, customLines)` appended the custom pack
+*unconditionally* whenever `customLines` was non-empty. The user's own writing was always in
+rotation; there was no way to switch it off, because it was not a pack you could list.
+
+v2 turns those lines into a real pack file, and a real pack file has to be listed in
+`activePackIds` to be used. Nothing added it. So the migration wrote `custom.json`, stamped
+the config v2, and the lines stopped appearing — no error, no empty state, nothing on screen
+at all, because from the app's point of view everything worked.
+
+The failure path was correct. `pendingCustomLines` keeps the lines live for the session when
+the pack write *fails*, and the version stamp is withheld so the next launch retries. So the
+bug bit only when the migration **succeeded** — the case nobody looks at twice.
+
+This survived the Task 1 review, the Task 3 review, the Tasks 12–16 review and a self-review.
+It needed a reviewer comparing the branch against what it replaced, which is what a
+whole-branch review is for, and is the argument for running one even after every task has
+been reviewed individually.
+
+**Solution.** `migrateConfig` appends `custom` to `activePackIds` in the same branch that
+lifts the lines out, falling back to `DEFAULT_CONFIG.activePackIds` when v1 listed none, and
+never adding it twice. Four tests.
+
+---
+
+### Issue 15 — The tray named a resume time the scheduler disagreed with
+
+**From:** [Task 5](#task-5--overnight-and-always-on-work-windows) · **Severity:** Important ·
+**Status:** fixed in `887e7cc`
+
+**Problem.** `nextWorkWindowStart` learned in Task 5 that a wrapping window covers midnight,
+and took *only* midnight: for each listed day it returned 00:00 and never considered that the
+same day's window also opens at `workStartMinute`. On 22:00–02:00 at Monday noon it returned
+Tuesday 00:00, so the tray read `Outside work hours · resumes 00:00 Tue` while the scheduler
+fired at 22:00 that evening — ten hours out, or a full week out on a single-day schedule.
+
+`countdownLabel` exists because the tray said `Due now` while nothing was on screen. This is
+the same defect in the same function: a label that disagrees with the scheduler it describes.
+
+**Solution.** Each listed day of a wrapping window offers two candidate openings — midnight
+and `workStartMinute` — and the earliest one after `t` wins. Three tests.
+
+---
+
+### Issue 16 — A persisted `nextDueAt` outlived the clock that produced it
+
+**From:** [Task 4](#task-4--persist-nextdueat-across-restarts) · **Severity:** Important ·
+**Status:** fixed in `887e7cc`
+
+**Problem.** Persisting `nextDueAt` removed the accidental cure for a wrong clock. If the
+system clock jumps forward while the app runs — a VM resume, a bad RTC at boot, a manual
+change — `applyEffects` writes a far-future `nextDueAt`. On master the next relaunch re-armed
+from `now` and healed it. With Task 4, the bad value is adopted on every launch and the app
+never fires again: a silent stop that survives the one thing a user would try.
+
+**Solution.** `Math.min(persisted, now + intervalMinutes)`. Nothing legitimate is further out
+than one interval. Three tests.
+
+---
+
+### Issue 17 — Typing in a time field could rewrite the schedule to always-on
+
+**From:** [Task 10](#task-10--schedule-hydration-and-general-panes) · **Severity:** Important ·
+**Status:** fixed in `887e7cc`
+
+**Problem.** `normalizeSchedule` refuses an *empty* window (start equal to end) by falling
+back to the default — and the default is now 00:00–24:00, always on. So an equal pair does
+not just get rejected, it replaces the user's whole window.
+
+`<input type="time">` fires `change` per completed segment. With 09:00–18:00 stored, typing
+`18` into the From hour produces a transient 18:00–18:00, which is stored, normalized to
+always-on, and the Always-on checkbox ticks itself while the user is still typing.
+
+Task 10 spent three fix rounds on exactly this class of bug for the number fields and for a
+cleared time field. This is the same class, one input over.
+
+**Solution.** `setTime` takes the other bound and refuses a value equal to it, restoring the
+field the way the blank-value guard already does.
+
+---
+
+### Issue 18 — Save rewrote any line that started with a bracket
+
+**From:** [Task 7](#task-7--the-pack-line-editor-text-format) · **Severity:** Important ·
+**Status:** fixed in `887e7cc`
+
+**Problem.** The editor's format had no escape. An untagged line whose text begins
+`[0] this is literal text` formatted to exactly the string a stage-tagged line formats to, so
+opening the pack and pressing Save silently pinned it to stage 0. If the brackets held a word
+— `[sigh] fine.` — Save instead reported an error the user had no syntax to resolve, on a line
+they had never edited.
+
+The lines most likely to start with `[` are v1 `customLines`: free text, written by a person,
+now migrated into a pack the editor opens.
+
+Task 7's whole argument was that a line quietly losing its stage tag reappears at the wrong
+volume. This is that failure with the sign flipped — a line quietly *gaining* one.
+
+**Solution.** `\[` at the very start of a line is a literal bracket. The formatter writes it,
+the parser strips it, and the tag's own brackets are untouched because escaping happens on the
+body. Four tests, and the editor's legend says so.
+
+---
+
+### Issue 19 — Two smaller ones
+
+**Status:** both fixed in `887e7cc`
+
+`readPackShape` accepted `stage: []`, `[-1]` and `[1.5]`, which `parsePackText` rejects. Each
+is a line eligible at no stage at all, so it was already dead — but the pack opened in the
+editor and could then never be saved, reporting an error against a line the user never typed.
+Now a shape error, named against its line.
+
+And the Hydration pane rendered "That is 1 glasses a day" for any goal under one glass.
+`packvalidate` ships a rule rejecting that exact construction in pack copy; the app's own
+strings were exempt from it.
+
+---
+
 ## Rulings made without asking
 
 Decisions taken during execution that changed what got built. Recorded so they can be
@@ -775,6 +907,8 @@ reviewed and reversed.
 | R14 | Folded three trivia into R13's round because they were one-liners in code already being touched: stage delays now bounded and integer-checked, `CORNERS` made `readonly`, per-stage `aria-label`s | None |
 | R15 | Tasks 12–16 ran without implementer or reviewer subagents, the session having forbidden them, and were reviewed by trace instead | Five tasks carry one pair of eyes rather than two. The whole-branch review is where that gets caught, and it has not been run |
 | R16 | Fixed all six findings from the 12–16 review in one round rather than parking the Minors, because two of them (stale line numbers, the unguarded section switch) sit in the same handful of lines as the Importants | One slightly larger round. Both Minors were in code already being rewritten |
+| R18 | Fixed all seven whole-branch findings in one round, including the two Lows, on the same reasoning as R16: both sat inside code the round was already rewriting | One larger round rather than a trailing cleanup nobody schedules |
+| R19 | Chose an escape character for the pack editor (`\[` at line start) rather than forbidding a leading bracket. Forbidding it would make v1 migrated lines unsaveable through the only editor the user has | One character of syntax to learn, documented in the pane's legend |
 | R17 | `readPackShape` stamps the id from the filename rather than reporting a mismatch as an error. Reporting it would leave the user with a broken row and no way to fix it from the pane; stamping makes the file work the way the rest of the codebase already assumes | A pack file whose `id` field disagrees is silently corrected rather than flagged. The field was never the identity — `writeUserPack` has always named the file from the id |
 
 ---

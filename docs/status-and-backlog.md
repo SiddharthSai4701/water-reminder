@@ -18,7 +18,7 @@ below is the part that was not otherwise written down. Read it alongside:
 |---|---|
 | 1 — core loop, tray, escalation | **Done.** Merged to `master`, 104 tests. |
 | 2 — macOS verification | **Nearly done.** See below; the core promise passed. |
-| 3a — settings, config, packs | **Built and reviewed,** on `feat/phase-3a`, 225 tests. Needs the macOS pass on a fresh `.dmg`. |
+| 3a — settings, config, packs | **Built and reviewed** (per-task, then whole-branch), on `feat/phase-3a`, 244 tests. Needs the macOS pass on a fresh `.dmg`. |
 | 3b — themes, mascot, sound, stats | Not started. Specced after 3a is in use. |
 | 4 — smart pause | Not started. Mic/meeting/fullscreen/idle detection. |
 
@@ -124,7 +124,7 @@ Nothing left here: every item that was in this section was closed in Phase
 ### Fixed in Phase 3a
 
 All on `feat/phase-3a`, 2026-08-27 to 2026-08-29. Test count 118 on `master`
--> 225 on the branch. (Phase 1 merged with 104; v0.1.4's fixes took it to 118.)
+-> 244 on the branch. (Phase 1 merged with 104; v0.1.4's fixes took it to 118.)
 
 - **The schedule is editable, and can be overnight or always-on.**
   `normalizeSchedule` used to require `workEndMinute > workStartMinute` and
@@ -136,7 +136,11 @@ All on `feat/phase-3a`, 2026-08-27 to 2026-08-29. Test count 118 on `master`
   `version` and branches. Config is at v2; `customLines` moved out to
   `<userData>/packs/custom.json`, and the version is stamped only after that
   file is written, so a failed write retries next launch instead of claiming
-  a migration that did not happen.
+  a migration that did not happen. The migration also **activates** the pack
+  it writes: v1 appended custom lines unconditionally, so a v2 config that
+  did not list `custom` retired the user's own writing at the moment of
+  upgrade. That one survived three reviews and was caught only by comparing
+  the branch against master.
 - **`nextDueAt` is persisted across restarts.** A stored future value is
   adopted as-is; a stored past value produces exactly one reminder on the
   first tick rather than a burst, matching what wake-from-sleep already did.

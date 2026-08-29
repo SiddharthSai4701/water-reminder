@@ -91,8 +91,17 @@ Not yet run:
       active one refuses to be unchecked with a note saying why.
 - [ ] An overnight window still fires after midnight: set 22:00-02:00, wait
       out one interval past midnight.
+- [ ] With that window set, check the tray tooltip during the afternoon. It
+      must name tonight's 22:00 opening, not midnight tomorrow.
 - [ ] After a migration from a v1 config, `config.json` reads `version: 2`,
       has no `customLines`, and the old lines are in
-      `<userData>/packs/custom.json`.
+      `<userData>/packs/custom.json`. **`activePackIds` must now include
+      `custom`** — the file existing is not the same as the lines being used,
+      and reminders must actually show one of them.
+- [ ] A pack line that starts with a bracket survives an edit. Add
+      `[0] literal text` to a pack, Save, reopen: it must still read
+      `\[0] literal text` in the editor and must not have gained a stage tag.
+- [ ] On a 09:00-18:00 window, retype the From hour to 18. The schedule must
+      not flip to Always on partway through the keystrokes.
 - [ ] Quit and relaunch: the next reminder keeps its old time rather than
       being pushed a full interval into the future.
