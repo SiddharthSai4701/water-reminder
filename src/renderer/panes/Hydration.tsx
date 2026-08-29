@@ -54,7 +54,9 @@ export default function HydrationPane({ config, patch }: Props): JSX.Element {
         ml
       </label>
 
-      <p className="note">{`That is ${glasses} glasses a day.`}</p>
+      {/* packvalidate rejects "{{glasses}} glasses" in pack copy for exactly
+          this reason; the app's own strings do not get an exemption. */}
+      <p className="note">{`That is ${glasses} ${glasses === 1 ? 'glass' : 'glasses'} a day.`}</p>
     </div>
   );
 }

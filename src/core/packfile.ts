@@ -49,6 +49,16 @@ export function readPackShape(
     if (!Array.isArray(line.stage) || !line.stage.every((n) => typeof n === 'number')) {
       return fail(`${at} has a "stage" that is not a list of numbers`);
     }
+    // The same rule parsePackText enforces on a typed tag. A pack holding a
+    // stage the editor cannot write opens fine and can then never be saved,
+    // reporting an error on a line the user never touched — and every such
+    // value is a line eligible at no stage at all, so it was already dead.
+    if (
+      line.stage.length === 0 ||
+      !line.stage.every((n) => Number.isInteger(n) && (n as number) >= 0)
+    ) {
+      return fail(`${at} has a "stage" that is not whole numbers from 0 upwards`);
+    }
     // Rebuilt field by field rather than spread: an unknown key carried through
     // here would be written straight back out by the editor's save, quietly
     // preserving something nothing in the app understands.

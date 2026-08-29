@@ -34,3 +34,28 @@ describe('migrateConfig', () => {
     expect(migrateConfig('nonsense').raw.version).toBe(2);
   });
 });
+
+describe('migrating customLines keeps them in rotation', () => {
+  it('activates the custom pack it just created', () => {
+    // v1 appended the custom pack whenever customLines was non-empty, so those
+    // lines were always live. Writing them to a file the config does not list
+    // retires the user's own writing silently, on upgrade, with nothing shown.
+    const { raw } = migrateConfig({ customLines: ['Mine.'], activePackIds: ['sarcastic'] });
+    expect(raw.activePackIds).toEqual(['sarcastic', 'custom']);
+  });
+
+  it('keeps the default pack when v1 listed none', () => {
+    const { raw } = migrateConfig({ customLines: ['Mine.'] });
+    expect(raw.activePackIds).toEqual(['sarcastic', 'custom']);
+  });
+
+  it('does not add it twice', () => {
+    const { raw } = migrateConfig({ customLines: ['Mine.'], activePackIds: ['custom'] });
+    expect(raw.activePackIds).toEqual(['custom']);
+  });
+
+  it('leaves activePackIds alone when there were no custom lines', () => {
+    const { raw } = migrateConfig({ activePackIds: ['deadpan'] });
+    expect(raw.activePackIds).toEqual(['deadpan']);
+  });
+});

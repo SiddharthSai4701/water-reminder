@@ -113,3 +113,31 @@ describe('progressLabel', () => {
     expect(progressLabel(4500, 4000)).toBe('4.5 / 4.0 L');
   });
 });
+
+describe('nextWorkWindowStart on a wrapping window', () => {
+  const night = { workStartMinute: 22 * 60, workEndMinute: 2 * 60, workDays: [0, 1, 2, 3, 4, 5, 6] };
+
+  it('returns tonight opening, not tomorrow midnight', () => {
+    // Monday noon, window 22:00-02:00. Reminders resume in ten hours, not in
+    // twelve: the label used to say "resumes 00:00 Tue" while the scheduler
+    // fired at 22:00 the same evening. A countdown that disagrees with the
+    // scheduler is the v0.1.4 bug this whole module was extracted to fix.
+    const noon = new Date(2026, 7, 24, 12, 0).getTime();
+    expect(nextWorkWindowStart(noon, night)).toBe(new Date(2026, 7, 24, 22, 0).getTime());
+  });
+
+  it('returns the small hours when the evening opening has passed', () => {
+    // 01:00 is inside the window, so the caller never asks; 03:00 is the real
+    // question, and the answer is tonight at 22:00 again.
+    const threeAm = new Date(2026, 7, 25, 3, 0).getTime();
+    expect(nextWorkWindowStart(threeAm, night)).toBe(new Date(2026, 7, 25, 22, 0).getTime());
+  });
+
+  it('crosses to the next listed day when today is not one', () => {
+    const mondayOnly = { ...night, workDays: [1] };
+    // Sunday noon. The next opening is Monday 22:00 - and midnight on Monday
+    // is inside Monday's window too, but nothing is due before 22:00 anyway.
+    const sunday = new Date(2026, 7, 23, 12, 0).getTime();
+    expect(nextWorkWindowStart(sunday, mondayOnly)).toBe(new Date(2026, 7, 24, 0, 0).getTime());
+  });
+});

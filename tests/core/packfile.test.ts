@@ -65,3 +65,20 @@ describe('readPackShape', () => {
     expect(readPackShape({ lines: {} }, 'mine').error).toContain('mine');
   });
 });
+
+describe('readPackShape rejects stage tags the editor cannot write', () => {
+  it('rejects an empty stage array', () => {
+    // Eligible at no stage at all, so the line is already dead - and the editor
+    // cannot represent it, so the pack opens and can then never be saved.
+    expect(readPackShape({ lines: [{ text: 'A.', stage: [] }] }, 'x').error).toMatch(/line 1/);
+  });
+
+  it('rejects a negative or fractional stage', () => {
+    expect(readPackShape({ lines: [{ text: 'A.', stage: [-1] }] }, 'x').error).toMatch(/line 1/);
+    expect(readPackShape({ lines: [{ text: 'A.', stage: [1.5] }] }, 'x').error).toMatch(/line 1/);
+  });
+
+  it('still accepts an ordinary tag', () => {
+    expect(readPackShape({ lines: [{ text: 'A.', stage: [0, 2] }] }, 'x').error).toBeNull();
+  });
+});

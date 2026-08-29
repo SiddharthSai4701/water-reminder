@@ -235,7 +235,8 @@ export default function PacksPane({
         <div className="editor">
           <p className="note">
             One line per row. <code>[0]</code> or <code>[0,1]</code> tags which escalation stages a
-            line suits. Untagged lines can appear at any stage.
+            line suits. Untagged lines can appear at any stage. A line that starts with a real
+            bracket is written <code>\[like this]</code>, so it is not read as a tag.
           </p>
           <textarea
             aria-label={`Lines in ${editing.name}`}

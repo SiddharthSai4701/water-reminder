@@ -21,6 +21,18 @@ export interface ParsedPackText {
 const TAGGED = /^\[([^\]]*)\]\s*(.*)$/;
 
 /**
+ * Written before a line whose own text starts with `[`, so the parser reads it
+ * as body text rather than as a stage tag. One character, and only ever at the
+ * very start of a line, because that is the only place `[` is ambiguous.
+ */
+const ESCAPE = '\\[';
+
+/** Drops the escaping backslash, keeping the bracket it was protecting. */
+function unescapeBody(text: string): string {
+  return text.startsWith(ESCAPE) ? text.slice(1) : text;
+}
+
+/**
  * The editor's format: one line per row, with an optional stage tag in
  * brackets. An untagged line is eligible at every stage, matching
  * `PackLine.stage` being absent.
@@ -41,6 +53,16 @@ export function parsePackText(text: string): ParsedPackText {
     const lineNumber = index + 1;
     const trimmed = raw.trim();
     if (trimmed.length === 0) return;
+
+    // A line the formatter escaped because its own text starts with a bracket.
+    // Without this, "[0] literal text" written as body text formats to exactly
+    // what a stage-tagged line formats to, and the next Save silently pins it
+    // to stage 0 — or rejects it outright if the brackets hold a word.
+    if (trimmed.startsWith(ESCAPE)) {
+      lines.push({ text: unescapeBody(trimmed) });
+      sourceLines.push(lineNumber);
+      return;
+    }
 
     const match = TAGGED.exec(trimmed);
     if (match === null) {
@@ -73,7 +95,9 @@ export function parsePackText(text: string): ParsedPackText {
       return;
     }
 
-    lines.push({ text: body.trim(), stage });
+    // The body of a tagged line can itself start with a bracket, and it is
+    // escaped the same way — the tag's brackets are syntax, the body's are text.
+    lines.push({ text: unescapeBody(body.trim()), stage });
     sourceLines.push(lineNumber);
   });
 
@@ -82,8 +106,11 @@ export function parsePackText(text: string): ParsedPackText {
 
 export function formatPackText(lines: PackLine[]): string {
   return lines
-    .map((line) =>
-      line.stage === undefined ? line.text : `[${line.stage.join(',')}] ${line.text}`,
-    )
+    .map((line) => {
+      // Escape the body first, then add the tag: the tag's own brackets are
+      // syntax and must not be escaped, while the body's are text.
+      const text = line.text.startsWith('[') ? `\\${line.text}` : line.text;
+      return line.stage === undefined ? text : `[${line.stage.join(',')}] ${text}`;
+    })
     .join('\n');
 }

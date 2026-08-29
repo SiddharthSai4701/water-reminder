@@ -10,17 +10,26 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
  * setMinutes, so a DST transition shifts the wall clock, not the boundary.
  */
 export function nextWorkWindowStart(t: number, hours: WorkHours): number {
+  const wraps = hours.workEndMinute <= hours.workStartMinute;
+
   // A week plus a day: enough to reach any opening, bounded so an empty
   // workDays list cannot spin a background process forever.
   for (let i = 0; i <= 7; i++) {
-    const day = new Date(addLocalDays(t, i));
-    if (!hours.workDays.includes(day.getDay())) continue;
-    // Under a wrapping window the earliest in-window minute of a listed day
-    // is midnight, because the window covers 00:00 up to workEndMinute.
-    const wraps = hours.workEndMinute <= hours.workStartMinute;
-    day.setMinutes(wraps ? 0 : hours.workStartMinute);
-    const start = day.getTime();
-    if (start > t) return start;
+    const midnight = addLocalDays(t, i);
+    if (!hours.workDays.includes(new Date(midnight).getDay())) continue;
+
+    // A wrapping window has TWO openings on each of its listed days: midnight,
+    // because the window covers 00:00 up to workEndMinute, and workStartMinute
+    // that evening. Taking only midnight told a user on 22:00-02:00 at noon
+    // that reminders resume "00:00 tomorrow" while the scheduler fired at
+    // 22:00 the same evening — a countdown disagreeing with the scheduler is
+    // the exact bug this module was extracted to fix.
+    const opening = new Date(midnight);
+    opening.setMinutes(hours.workStartMinute);
+    const candidates = wraps ? [midnight, opening.getTime()] : [opening.getTime()];
+
+    const next = candidates.filter((c) => c > t).sort((a, b) => a - b)[0];
+    if (next !== undefined) return next;
   }
   return t;
 }

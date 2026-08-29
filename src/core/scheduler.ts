@@ -64,16 +64,23 @@ export function isWithinWorkHours(now: number, cfg: WorkHours): boolean {
  * `persistedNextDueAt` is the value carried across a restart. A past value
  * produces exactly one reminder on the first tick rather than a burst — the
  * same collapse rule that applies to waking from sleep.
+ *
+ * A future value is capped at one interval from now. Nothing legitimate can
+ * be further out than that, and a clock that jumps forward while the app runs
+ * persists one that is: before this value was persisted, a relaunch re-armed
+ * from `now` and healed it, whereas now it would outlive every restart and
+ * the app would simply never fire again.
  */
 export function createInitialState(
   now: number,
   cfg: SchedulerConfig,
   persistedNextDueAt: number | null = null,
 ): SchedulerState {
+  const armed = now + cfg.intervalMinutes * MIN;
   const usable =
     typeof persistedNextDueAt === 'number' && Number.isFinite(persistedNextDueAt)
-      ? persistedNextDueAt
-      : now + cfg.intervalMinutes * MIN;
+      ? Math.min(persistedNextDueAt, armed)
+      : armed;
 
   return {
     phase: 'idle',

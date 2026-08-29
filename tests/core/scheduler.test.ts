@@ -349,3 +349,26 @@ describe('onConfigChange', () => {
     expect(out.effects).toEqual([]);
   });
 });
+
+describe('persisted nextDueAt is bounded', () => {
+  it('never accepts a value further out than one interval', () => {
+    // A clock that jumps forward while the app runs persists a far-future
+    // nextDueAt. Before it was persisted, a relaunch re-armed from now and
+    // healed it; now the bad value outlives every restart and the app simply
+    // never fires again - a silent stop that survives the usual fix.
+    const now = MONDAY_10AM;
+    const wayOut = now + 400 * 24 * 60 * MIN;
+    expect(createInitialState(now, cfg, wayOut).nextDueAt).toBe(now + cfg.intervalMinutes * MIN);
+  });
+
+  it('still adopts a value inside the interval', () => {
+    const now = MONDAY_10AM;
+    const soon = now + 7 * MIN;
+    expect(createInitialState(now, cfg, soon).nextDueAt).toBe(soon);
+  });
+
+  it('still fires once for a value in the past', () => {
+    const now = MONDAY_10AM;
+    expect(createInitialState(now, cfg, now - 90 * MIN).nextDueAt).toBeLessThanOrEqual(now);
+  });
+});

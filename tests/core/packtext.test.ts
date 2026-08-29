@@ -125,3 +125,33 @@ describe('parsePackText source lines', () => {
     expect(sourceLines).toEqual([1]);
   });
 });
+
+describe('a literal line that starts with a bracket', () => {
+  it('round-trips instead of being read as a stage tag', () => {
+    // Untagged text beginning "[0] " formatted to exactly the same string a
+    // tagged line formats to, so opening a pack and pressing Save silently
+    // pinned the line to stage 0. v1 customLines are free text and can start
+    // with anything.
+    const lines = [{ text: '[0] this is literal text' }];
+    const parsed = parsePackText(formatPackText(lines));
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.lines).toEqual(lines);
+  });
+
+  it('round-trips a bracket that is not a number either', () => {
+    const lines = [{ text: '[sigh] fine.' }];
+    const parsed = parsePackText(formatPackText(lines));
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.lines).toEqual(lines);
+  });
+
+  it('keeps escaping and tagging independent', () => {
+    const lines = [{ text: '[0] literal', stage: [2] }];
+    expect(formatPackText(lines)).toBe('[2] \\[0] literal');
+    expect(parsePackText(formatPackText(lines)).lines).toEqual(lines);
+  });
+
+  it('still reads a real tag', () => {
+    expect(parsePackText('[2] DRINK.').lines).toEqual([{ text: 'DRINK.', stage: [2] }]);
+  });
+});

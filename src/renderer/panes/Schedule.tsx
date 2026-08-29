@@ -35,9 +35,21 @@ function setTime(
   event: ChangeEvent<HTMLInputElement>,
   stored: number,
   apply: (minutes: number) => void,
+  /** The other end of the window. Equal bounds are refused, not stored. */
+  other: number,
 ): void {
   const minutes = fromTimeValue(event.currentTarget.value);
   if (!Number.isFinite(minutes)) {
+    event.currentTarget.value = toTimeValue(stored);
+    return;
+  }
+  // An empty window (start === end) is in-window for no instant, so
+  // normalizeSchedule throws BOTH bounds away and falls back to the default —
+  // which is 00:00-24:00, always on. A time input fires change per completed
+  // segment, so typing the hour of an 18:00 end into the 09:00 start passes
+  // through 18:00-18:00 and silently rewrites the whole schedule to always-on,
+  // ticking the Always-on box by itself. Refuse it, and put the field back.
+  if (minutes === other) {
     event.currentTarget.value = toTimeValue(stored);
     return;
   }
@@ -112,7 +124,12 @@ export default function SchedulePane({ config, patch }: Props): JSX.Element {
             type="time"
             value={toTimeValue(s.workStartMinute)}
             onChange={(e) =>
-              setTime(e, s.workStartMinute, (m) => void setSchedule({ workStartMinute: m }))
+              setTime(
+                e,
+                s.workStartMinute,
+                (m) => void setSchedule({ workStartMinute: m }),
+                s.workEndMinute,
+              )
             }
           />
         </label>
@@ -122,7 +139,12 @@ export default function SchedulePane({ config, patch }: Props): JSX.Element {
             type="time"
             value={toTimeValue(s.workEndMinute)}
             onChange={(e) =>
-              setTime(e, s.workEndMinute, (m) => void setSchedule({ workEndMinute: m }))
+              setTime(
+                e,
+                s.workEndMinute,
+                (m) => void setSchedule({ workEndMinute: m }),
+                s.workStartMinute,
+              )
             }
           />
         </label>
