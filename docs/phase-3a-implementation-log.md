@@ -5,16 +5,24 @@ Branch: `feat/phase-3a`, off `master` @ `1fb9565`
 Plan: `docs/superpowers/plans/2026-08-27-water-reminder-phase-3a.md`
 Spec: `docs/superpowers/specs/2026-08-27-water-reminder-phase-3a-design.md`
 
-**All 16 tasks complete.** Test count: **118 on master → 208 on the branch.**
+**All 16 tasks complete, and Tasks 12–16 have now been reviewed.** Test count:
+**118 on master → 225 on the branch.**
 `typecheck` and `build` clean at every commit, and the build emits both renderer entries
 and both preloads.
 
 Tasks 1–11 were built by implementer subagents and independently reviewed, one reviewer
 per task; every one of those reviews found something. **Tasks 12–16 were built in the
 main session with no reviewer subagent**, because the session they ran in forbade
-dispatching agents. They were reviewed by trace against the same charge instead. That is
-a real reduction in rigour on five tasks, and the whole-branch review has not been run at
-all — it is the outstanding piece of this branch's process.
+dispatching agents. They were reviewed by trace against the same charge instead.
+
+That gap was closed on 2026-08-29: a review of `1e8db0d..HEAD` found **six** findings, one
+of them a permanent data-loss bug that five tasks of self-review had walked straight past.
+See [Issue 9](#issue-9--revert-permanently-deleted-the-user-packs-that-had-no-shipped-copy)
+onwards. The lesson is not subtle: the self-review found style and one number, and missed
+the thing that destroys a user's own writing.
+
+A **whole-branch** review — 118 tests' worth of `master..HEAD`, not just 12–16 — has still
+not been run.
 
 This file records what each task did and every issue found along the way. Issues have
 their own entries in the second half, each linking back to the task it came from.
@@ -632,6 +640,118 @@ Accepted.
 
 ---
 
+### Issue 9 — Revert permanently deleted the user packs that had no shipped copy
+
+**From:** [Task 12](#task-12--packs-pane) · **Severity:** High · **Status:** fixed in `71a741e`
+
+**Problem.** *Revert to shipped* rendered whenever `pack.customised` was true, and
+`customised` is only `hasUserPack(id)` — it never asked whether a shipped file with that id
+exists to revert *to*. `settings:packs:revert` then called `deleteUserPack(id)` unguarded.
+
+The app ships four packs: sarcastic, drill-sergeant, wholesome, deadpan. The v1→v2
+migration writes a fifth, `custom.json`, built from the user's hand-written `customLines`.
+It has no shipped copy. So for the one pack whose contents exist nowhere else, the pane
+offered a button whose confirm read *"Replace your copy with the pack the app ships"*, and
+whose actual effect was to destroy every migrated line with no undo. The same held for any
+pack hand-authored into the folder that Task 12's own *Reveal packs folder* button opens.
+
+If Custom was the only active pack, `loadPacks(['custom'])` then returned `[]` and every
+reminder silently became `"Time to drink water."`
+
+**Solution.** `PackSummary` gains `shipped`. The button renders only when `customised &&
+shipped`; a user-only pack is badged *Yours* instead of *Customised* and has no revert
+action at all. `settings:packs:revert` refuses the delete when nothing is shipped under it,
+so the boundary holds even if a future pane asks. Deleting a pack of your own is left to
+the folder, which is one click away and does not lie about what it is doing.
+
+---
+
+### Issue 10 — A pack file was cast to `Pack`, never checked
+
+**From:** [Task 12](#task-12--packs-pane) · **Severity:** Important ·
+**Status:** fixed in `71a741e`
+
+**Problem.** `readPack` did `JSON.parse(readFileSync(path)) as Pack` and reported an error
+only when the parse *threw*. `{"id":"x","name":"X"}` parses perfectly and is not a pack.
+Two paths, both reproduced before the fix:
+
+```
+pack?.lines.length ?? 0   -> TypeError: Cannot read properties of undefined
+for (const line of pack.lines)  -> TypeError: pack.lines is not iterable
+```
+
+The first rejects `settings:get` and leaves the settings window on "Could not load your
+settings". The second throws from `eligibleLines`, called out of `applyEffects`, called from
+the one-second tick — an uncaught exception in a background process with no window, which is
+this project's worst failure shape and the thing the whole Packs pane exists to prevent.
+
+Task 12 is what made it reachable: the Reveal button and the manual checklist turned
+hand-authored pack files into a supported workflow, and the only corrupt-pack test in the
+plan covers invalid JSON, which was already handled.
+
+**Solution.** `src/core/packfile.ts` — `readPackShape(raw, id)`, pure, nine tests. Rejects a
+non-object, a missing or non-array `lines`, a line without a string `text`, and a `stage`
+that is not a list of numbers, reporting each through the same `error` channel a parse
+failure already used. Lines are rebuilt field by field rather than spread, so an unknown key
+cannot ride through the editor's save.
+
+---
+
+### Issue 11 — A pack whose internal id disagreed with its filename opened blank, and saving overwrote it
+
+**From:** [Task 12](#task-12--packs-pane) · **Severity:** Important ·
+**Status:** fixed in `71a741e`
+
+**Problem.** `summaries()` built its lookup from `pack.id`, the JSON field, but keyed it by
+the filename ids from `listPackIds()`. Copy `sarcastic.json` to `mine.json` in the folder
+the Reveal button opens — the obvious way to start your own pack — and `byId.get('mine')` is
+`undefined`. The row showed *0 lines* with no error, so Edit stayed enabled;
+`settings:packs:read` did the same lookup and returned `''`; the editor opened blank over 74
+real lines. Type two lines, press Save, and `writeUserPack` replaced the file wholesale.
+
+**Solution.** The filename is the identity everywhere else in this codebase —
+`listPackIds` reads the directory, `writeUserPack` names the file from the id, and a user
+pack overrides a shipped one by matching filename. `readPackShape` now stamps the id from
+the filename and the file does not get a vote.
+
+---
+
+### Issue 12 — The "at least one pack" guard counted packs that no longer exist
+
+**From:** [Task 12](#task-12--packs-pane) · **Severity:** Important ·
+**Status:** fixed in `71a741e`
+
+**Problem.** The guard tested `config.activePackIds`, and nothing prunes an id whose file is
+gone — `normalizeConfig` objects only to an *empty* array, and revert leaves the id behind.
+So with `['sarcastic', 'custom']` and Custom deleted, the count still read 2: unchecking
+Sarcastic passed the guard, `loadPacks` returned `[]`, and every reminder became the generic
+fallback line. The `length === 1` note never fired, so nothing on screen said why.
+
+The deferred-minor list from Task 12 had noticed the dead id was *invisible*. It had not
+noticed the dead id was also *load-bearing* for the one guard standing between the user and
+a silent personality wipe.
+
+**Solution.** The guard counts active ids that resolve to a readable pack, and a second note
+says how many active packs could not be read, so the count on screen and the count in the
+rule are the same number.
+
+---
+
+### Issue 13 — Stale line numbers, and a section switch that ate the editor
+
+**From:** [Task 12](#task-12--packs-pane) · **Severity:** Minor ·
+**Status:** both fixed in `71a741e`
+
+Validation errors naming line numbers survived every keystroke after a failed save, so
+deleting a row above them left "Line 12" pointing somewhere else — the exact failure
+`atSourceLines` was written to remove. They now clear on the first edit.
+
+And `mayDiscard()` guarded Edit and Cancel but not the nav: clicking *General* unmounted the
+pane and dropped a half-written pack in silence. The dirty flag is reported up to `Settings`,
+which asks before it switches. The window's own close button is still unguarded.
+
+---
+
 ## Rulings made without asking
 
 Decisions taken during execution that changed what got built. Recorded so they can be
@@ -654,6 +774,8 @@ reviewed and reversed.
 | R13 | Extracted Task 11's ladder guard into `src/core/ladder.ts` as `tryUpdateStage`, on the design spec's own rule that a pane wanting a test is the signal | A pure function moves file and gains 13 tests |
 | R14 | Folded three trivia into R13's round because they were one-liners in code already being touched: stage delays now bounded and integer-checked, `CORNERS` made `readonly`, per-stage `aria-label`s | None |
 | R15 | Tasks 12–16 ran without implementer or reviewer subagents, the session having forbidden them, and were reviewed by trace instead | Five tasks carry one pair of eyes rather than two. The whole-branch review is where that gets caught, and it has not been run |
+| R16 | Fixed all six findings from the 12–16 review in one round rather than parking the Minors, because two of them (stale line numbers, the unguarded section switch) sit in the same handful of lines as the Importants | One slightly larger round. Both Minors were in code already being rewritten |
+| R17 | `readPackShape` stamps the id from the filename rather than reporting a mismatch as an error. Reporting it would leave the user with a broken row and no way to fix it from the pane; stamping makes the file work the way the rest of the codebase already assumes | A pack file whose `id` field disagrees is silently corrected rather than flagged. The field was never the identity — `writeUserPack` has always named the file from the id |
 
 ---
 

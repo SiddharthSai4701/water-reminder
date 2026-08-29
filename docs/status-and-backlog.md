@@ -18,7 +18,7 @@ below is the part that was not otherwise written down. Read it alongside:
 |---|---|
 | 1 — core loop, tray, escalation | **Done.** Merged to `master`, 104 tests. |
 | 2 — macOS verification | **Nearly done.** See below; the core promise passed. |
-| 3a — settings, config, packs | **Built,** on `feat/phase-3a`, 208 tests. Needs the macOS pass on a fresh `.dmg`. |
+| 3a — settings, config, packs | **Built and reviewed,** on `feat/phase-3a`, 225 tests. Needs the macOS pass on a fresh `.dmg`. |
 | 3b — themes, mascot, sound, stats | Not started. Specced after 3a is in use. |
 | 4 — smart pause | Not started. Mic/meeting/fullscreen/idle detection. |
 
@@ -124,7 +124,7 @@ Nothing left here: every item that was in this section was closed in Phase
 ### Fixed in Phase 3a
 
 All on `feat/phase-3a`, 2026-08-27 to 2026-08-29. Test count 118 on `master`
--> 208 on the branch. (Phase 1 merged with 104; v0.1.4's fixes took it to 118.)
+-> 225 on the branch. (Phase 1 merged with 104; v0.1.4's fixes took it to 118.)
 
 - **The schedule is editable, and can be overnight or always-on.**
   `normalizeSchedule` used to require `workEndMinute > workStartMinute` and
@@ -161,7 +161,13 @@ All on `feat/phase-3a`, 2026-08-27 to 2026-08-29. Test count 118 on `master`
   open settings window is told as well.
 - **A pack that fails to load is a visible row** in the Packs pane with the
   parser's own message, instead of a personality that silently disappears
-  behind `"Time to drink water."`.
+  behind `"Time to drink water."`. "Fails to load" now includes JSON that
+  parses but is not a pack: that used to throw out of the one-second tick,
+  which is an uncaught exception in a process with no window.
+- **Revert only appears where there is something to revert to.** It deletes
+  the user file and lets the shipped one show through, so on a pack with no
+  shipped copy — `custom.json`, written by the v1 migration out of the user's
+  own lines — it was a permanent delete wearing the wrong word.
 - **Pack ids from the renderer are validated before they reach the
   filesystem.** Three IPC channels build a path from an id and one of them
   deletes with `{ force: true }`; an id of `../config` on the revert channel

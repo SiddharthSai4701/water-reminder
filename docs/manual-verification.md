@@ -75,6 +75,18 @@ Not yet run:
 - [ ] *Revert to shipped* deletes that file and the row stops being marked.
 - [ ] Hand-corrupt a pack file, restart, and confirm the Packs pane shows the
       parse error rather than the pack silently vanishing.
+- [ ] Do it again with JSON that is *valid but not a pack* — replace the file
+      with `{"id":"x","name":"X"}`. The row must show an error, the settings
+      window must still load, and reminders must keep firing. Before this was
+      fixed it threw out of the one-second tick, where nothing reports it.
+- [ ] Copy `sarcastic.json` to `mine.json` in the packs folder without editing
+      the `"id"` field, restart, and confirm the new row shows its real line
+      count and opens with its real content — not 0 lines and a blank editor.
+- [ ] A pack that exists only in your folder (`custom.json` after a v1
+      migration, or `mine.json` above) is badged **Yours** and has **no**
+      "Revert to shipped" button. Deleting it would destroy the only copy.
+- [ ] Start editing a pack, then click another section in the sidebar. It must
+      ask before discarding what you typed.
 - [ ] All four packs are listed with working active checkboxes, and the last
       active one refuses to be unchecked with a note saying why.
 - [ ] An overnight window still fires after midnight: set 22:00-02:00, wait
