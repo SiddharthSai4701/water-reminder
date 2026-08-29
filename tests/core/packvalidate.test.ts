@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validatePackLines } from '../../src/core/packvalidate.js';
+import { atSourceLines, validatePackLines } from '../../src/core/packvalidate.js';
 
 describe('validatePackLines', () => {
   it('accepts a clean pack', () => {
@@ -41,6 +41,28 @@ describe('validatePackLines', () => {
     expect(issues).toEqual([
       { line: 1, message: 'blank line' },
       { line: 2, message: 'blank line' },
+    ]);
+  });
+});
+
+describe('atSourceLines', () => {
+  it('re-points an issue at the row the user typed', () => {
+    expect(atSourceLines([{ line: 2, message: 'duplicate line' }], [1, 4])).toEqual([
+      { line: 4, message: 'duplicate line' },
+    ]);
+  });
+
+  it('leaves a whole-pack issue alone', () => {
+    expect(atSourceLines([{ message: 'a pack needs at least one line' }], [])).toEqual([
+      { message: 'a pack needs at least one line' },
+    ]);
+  });
+
+  it('keeps the original number when there is no row for it', () => {
+    // A wrong line number is still more use than undefined, and a mismatched
+    // map is a bug in the caller rather than something to hide from the user.
+    expect(atSourceLines([{ line: 3, message: 'duplicate line' }], [1])).toEqual([
+      { line: 3, message: 'duplicate line' },
     ]);
   });
 });

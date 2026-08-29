@@ -18,7 +18,12 @@ export function userPacksDir(): string {
   return join(app.getPath('userData'), 'packs');
 }
 
-function ensureUserPacksDir(): void {
+/**
+ * Also called before revealing the folder: `shell.openPath` on a path that
+ * does not exist yet fails silently, so the button would do nothing at all
+ * until some other action happened to create the directory.
+ */
+export function ensureUserPacksDir(): void {
   mkdirSync(userPacksDir(), { recursive: true });
 }
 

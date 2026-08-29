@@ -3,6 +3,7 @@ import type { Config, PackSummary } from '../shared/types.js';
 import EscalationPane from './panes/Escalation.js';
 import GeneralPane from './panes/General.js';
 import HydrationPane from './panes/Hydration.js';
+import PacksPane from './panes/Packs.js';
 import SchedulePane from './panes/Schedule.js';
 
 const PANES = ['Schedule', 'Escalation', 'Hydration', 'Packs', 'General'] as const;
@@ -72,9 +73,8 @@ export default function Settings(): JSX.Element {
         {pane === 'Schedule' && <SchedulePane config={config} patch={patch} />}
         {pane === 'Escalation' && <EscalationPane config={config} patch={patch} />}
         {pane === 'Hydration' && <HydrationPane config={config} patch={patch} />}
-        {/* Packs is Task 12. */}
         {pane === 'Packs' && (
-          <p className="placeholder">{`${packs.length} packs installed. Pack editing arrives in a later task.`}</p>
+          <PacksPane config={config} packs={packs} setPacks={setPacks} patch={patch} />
         )}
         {pane === 'General' && <GeneralPane config={config} patch={patch} />}
       </main>

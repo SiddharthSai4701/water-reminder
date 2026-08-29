@@ -97,3 +97,31 @@ describe('formatPackText', () => {
     expect(formatPackText([{ text: 'Plain.' }])).toBe('Plain.');
   });
 });
+
+describe('parsePackText source lines', () => {
+  it('records the row each parsed line came from', () => {
+    const { lines, sourceLines } = parsePackText('One.\nTwo.');
+    expect(lines).toHaveLength(2);
+    expect(sourceLines).toEqual([1, 2]);
+  });
+
+  it('keeps the rows the user typed when blank rows are dropped', () => {
+    // parsePackText skips blank rows, so the nth parsed line is not the nth
+    // row of the textarea. An issue reported against the array index points at
+    // the wrong line in the editor, which is worse than no line number at all.
+    const { sourceLines } = parsePackText('One.\n\n   \nTwo.');
+    expect(sourceLines).toEqual([1, 4]);
+  });
+
+  it('skips the rows it rejected as errors', () => {
+    const { lines, sourceLines } = parsePackText('One.\n[x] Bad.\nTwo.');
+    expect(lines).toHaveLength(2);
+    expect(sourceLines).toEqual([1, 3]);
+  });
+
+  it('stays parallel to lines for a trailing newline', () => {
+    const { lines, sourceLines } = parsePackText('One.\n');
+    expect(sourceLines).toHaveLength(lines.length);
+    expect(sourceLines).toEqual([1]);
+  });
+});

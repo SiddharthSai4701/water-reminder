@@ -1,9 +1,10 @@
 import { ipcMain, shell } from 'electron';
 import { formatPackText, parsePackText } from '../core/packtext.js';
-import { validatePackLines } from '../core/packvalidate.js';
+import { atSourceLines, validatePackLines } from '../core/packvalidate.js';
 import type { Config, Pack, PackSummary, PackWriteResult } from '../shared/types.js';
 import {
   deleteUserPack,
+  ensureUserPacksDir,
   hasUserPack,
   listPackIds,
   loadPacksWithErrors,
@@ -72,7 +73,9 @@ export function registerSettingsIpc(deps: SettingsIpcDeps): void {
     const parsed = parsePackText(text);
     if (parsed.errors.length > 0) return { ok: false, errors: parsed.errors };
 
-    const issues = validatePackLines(parsed.lines);
+    // Through sourceLines, or every number the editor shows is off by however
+    // many blank rows precede it.
+    const issues = atSourceLines(validatePackLines(parsed.lines), parsed.sourceLines);
     if (issues.length > 0) return { ok: false, errors: issues };
 
     const { packs } = loadPacksWithErrors([id]);
@@ -95,6 +98,13 @@ export function registerSettingsIpc(deps: SettingsIpcDeps): void {
   });
 
   ipcMain.on('settings:packs:reveal', () => {
+    try {
+      // The directory only exists once something has been written into it, and
+      // openPath on a missing path just returns an error string nobody reads.
+      ensureUserPacksDir();
+    } catch (error) {
+      console.error('failed to create the user packs directory:', error);
+    }
     void shell.openPath(userPacksDir());
   });
 }

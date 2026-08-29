@@ -6,6 +6,27 @@ export interface PackIssue {
   message: string;
 }
 
+/**
+ * Re-points issues found in a parsed pack at the rows the user actually typed.
+ *
+ * `validatePackLines` numbers its issues by position in the array it was
+ * given, and parsing drops blank and rejected rows — so "Line 10" from the
+ * validator can be row 12 in the editor. A line number that points at the
+ * wrong line is worse than none: it sends the user to edit a line that is
+ * fine. `sourceLines` comes from `parsePackText`, parallel to its `lines`.
+ *
+ * An issue with no line is about the pack as a whole and passes through. A
+ * number with no row to map to keeps what it had: a caller that passed a
+ * mismatched map has a bug, and hiding the issue does not fix it.
+ */
+export function atSourceLines(issues: PackIssue[], sourceLines: number[]): PackIssue[] {
+  return issues.map((issue) => {
+    if (issue.line === undefined) return issue;
+    const source = sourceLines[issue.line - 1];
+    return source === undefined ? issue : { ...issue, line: source };
+  });
+}
+
 /** "{{glasses}} glasses" reads as "1 glasses" whenever the count is one. */
 const HARDCODED_PLURAL = /\{\{glasses\}\}\s+(glasses|glass)\b/i;
 

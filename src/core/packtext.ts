@@ -9,6 +9,13 @@ export interface PackTextError {
 export interface ParsedPackText {
   lines: PackLine[];
   errors: PackTextError[];
+  /**
+   * The 1-indexed row each entry of `lines` was typed on, parallel to it.
+   * Blank rows and rejected rows are dropped from `lines`, so an index into
+   * `lines` is not a row in the editor — anything reporting a problem about a
+   * line has to come back through here or it points at the wrong one.
+   */
+  sourceLines: number[];
 }
 
 const TAGGED = /^\[([^\]]*)\]\s*(.*)$/;
@@ -28,6 +35,7 @@ const TAGGED = /^\[([^\]]*)\]\s*(.*)$/;
 export function parsePackText(text: string): ParsedPackText {
   const lines: PackLine[] = [];
   const errors: PackTextError[] = [];
+  const sourceLines: number[] = [];
 
   text.split('\n').forEach((raw, index) => {
     const lineNumber = index + 1;
@@ -44,6 +52,7 @@ export function parsePackText(text: string): ParsedPackText {
         return;
       }
       lines.push({ text: trimmed });
+      sourceLines.push(lineNumber);
       return;
     }
 
@@ -65,9 +74,10 @@ export function parsePackText(text: string): ParsedPackText {
     }
 
     lines.push({ text: body.trim(), stage });
+    sourceLines.push(lineNumber);
   });
 
-  return { lines, errors };
+  return { lines, errors, sourceLines };
 }
 
 export function formatPackText(lines: PackLine[]): string {

@@ -323,3 +323,137 @@ h1 {
 .pane .stage:last-of-type {
   border-bottom: none;
 }
+
+/* --- Packs ----------------------------------------------------------- */
+
+.pane ul.packs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.pane .pack {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(79, 195, 247, 0.15);
+}
+
+.pane .pack:last-of-type {
+  border-bottom: none;
+}
+
+/* The checkbox and the name are one target: the name says what the checkbox
+   turns on, so clicking it should toggle the pack. */
+.pane .pack-active {
+  min-width: 11rem;
+}
+
+.pane .pack-name {
+  font-weight: 600;
+}
+
+/* Pushed right so Edit and Revert line up down the list rather than starting
+   wherever the pack's name and line count happen to end. */
+.pane .pack-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.pane .pack button,
+.pane .editor button {
+  font: inherit;
+  font-weight: 600;
+  border: 1px solid rgba(79, 195, 247, 0.35);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.pane .pack button:hover:not(:disabled),
+.pane .editor button:hover {
+  background: rgba(234, 246, 251, 0.08);
+  color: var(--text);
+}
+
+.pane .pack button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pane .editor button.primary {
+  background: rgba(79, 195, 247, 0.2);
+  border-color: rgba(79, 195, 247, 0.7);
+  color: var(--text);
+}
+
+.pane .badge {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid rgba(79, 195, 247, 0.45);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+/* A load failure takes the line count's place, so it inherits nothing from
+   .error's block layout — it has to sit inline in the row. */
+.pane .pack-broken {
+  color: #ffb3aa;
+  font-size: 13px;
+  flex: 1 1 14rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pane .editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.pane .editor code {
+  font-size: 12px;
+  background: rgba(234, 246, 251, 0.08);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+/* Monospace, because a stage tag is punctuation the user has to get exactly
+   right and the line numbers in an error have to be countable. */
+.pane textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  background: rgba(234, 246, 251, 0.06);
+  border: 1px solid rgba(79, 195, 247, 0.35);
+  border-radius: 8px;
+  padding: 10px 12px;
+  width: 100%;
+  resize: vertical;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.pane ul.issues {
+  list-style: none;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 138, 128, 0.5);
+  border-radius: 8px;
+  background: rgba(255, 138, 128, 0.1);
+  color: #ffb3aa;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
