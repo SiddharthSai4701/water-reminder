@@ -194,6 +194,7 @@ if (!gotLock) {
       state: () => actions.state(),
       config: () => actions.config(),
       drank: () => actions.drank(),
+      mlToday: () => mlOnDay(readEvents(), startOfLocalDay(Date.now())),
       setDnd: (until) => actions.setDnd(until),
       reloadConfig: () => actions.refreshConfig(),
       openSettings: () => settings?.open(),

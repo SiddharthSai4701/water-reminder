@@ -1,6 +1,6 @@
 import { Menu, Tray, app, nativeImage } from 'electron';
 import { join } from 'node:path';
-import { countdownLabel } from '../core/labels.js';
+import { countdownLabel, progressLabel } from '../core/labels.js';
 import { addLocalDays } from '../core/stats.js';
 import type { SchedulerState } from '../core/scheduler.js';
 import type { Config } from '../shared/types.js';
@@ -9,6 +9,8 @@ export interface TrayDeps {
   state(): SchedulerState;
   config(): Config;
   drank(): void;
+  /** Millilitres logged so far today, for the tooltip's progress. */
+  mlToday(): number;
   setDnd(until: number | null): void;
   reloadConfig(): void;
   openSettings(): void;
@@ -37,7 +39,11 @@ export function createTray(deps: TrayDeps): { refresh(): void; destroy(): void }
     const config = deps.config();
     const paused = config.dndUntil !== null && config.dndUntil > Date.now();
 
-    tray.setToolTip(`Water Reminder — ${label(deps)}`);
+    // Drink now had no feedback at all: the count it moves appeared nowhere in
+    // the tray, so the only proof it worked was the next reminder not firing.
+    tray.setToolTip(
+      `Water Reminder — ${progressLabel(deps.mlToday(), config.goalMl)} · ${label(deps)}`,
+    );
     tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: label(deps), enabled: false },

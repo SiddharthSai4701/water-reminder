@@ -59,3 +59,15 @@ export function countdownLabel(
   if (target !== due) return `Next drink at ${formatWhen(target, now)}`;
   return `Next drink in ${Math.max(1, Math.round((target - now) / MIN))} min`;
 }
+
+/**
+ * Hydration progress for the tray tooltip, e.g. "1.2 / 4.0 L".
+ *
+ * One decimal place on both halves, including a whole number: "4 / 4.0 L"
+ * reads as two different units at a glance. It deliberately does not stop at
+ * the goal — passing it is a fact about the day, not an error state.
+ */
+export function progressLabel(ml: number, goalMl: number): string {
+  const litres = (value: number): string => (value / 1000).toFixed(1);
+  return `${litres(ml)} / ${litres(goalMl)} L`;
+}

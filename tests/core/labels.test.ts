@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countdownLabel, nextWorkWindowStart } from '../../src/core/labels.js';
+import { countdownLabel, nextWorkWindowStart, progressLabel } from '../../src/core/labels.js';
 import type { SchedulerState } from '../../src/core/scheduler.js';
 
 const hours = {
@@ -97,5 +97,19 @@ describe('countdownLabel', () => {
     expect(countdownLabel(idle(mon(18, 20)), mon(17, 55), hours)).toBe(
       'Next drink at 09:00 Tue',
     );
+  });
+});
+
+describe('progressLabel', () => {
+  it('reads as litres to one decimal place', () => {
+    expect(progressLabel(1200, 4000)).toBe('1.2 / 4.0 L');
+  });
+
+  it('shows zero rather than an empty string', () => {
+    expect(progressLabel(0, 4000)).toBe('0.0 / 4.0 L');
+  });
+
+  it('does not stop at the goal', () => {
+    expect(progressLabel(4500, 4000)).toBe('4.5 / 4.0 L');
   });
 });
