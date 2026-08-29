@@ -78,5 +78,14 @@ exports.default = async function afterPack(context) {
     stdio: 'inherit',
   });
 
-  console.log(`  • ad-hoc signed  ${appPath}`);
+  // Verify what we just signed. This hook now deletes files inside the bundle
+  // before signing it, and a bundle whose signature does not match its contents
+  // is reported by macOS as "damaged" — a failure that would only show up on
+  // someone's Mac, one download later, with no way to tell it from a bad
+  // download. Failing the build here is the only place it is cheap.
+  execFileSync('codesign', ['--verify', '--deep', '--strict', appPath], {
+    stdio: 'inherit',
+  });
+
+  console.log(`  • ad-hoc signed and verified  ${appPath}`);
 };
