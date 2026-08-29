@@ -5,9 +5,16 @@ Branch: `feat/phase-3a`, off `master` @ `1fb9565`
 Plan: `docs/superpowers/plans/2026-08-27-water-reminder-phase-3a.md`
 Spec: `docs/superpowers/specs/2026-08-27-water-reminder-phase-3a-design.md`
 
-Tasks 1–9 of 16 complete and reviewed. Test count: **118 on master → 164 on the
-branch.** `typecheck` and `build` clean at every commit, and the build now emits both
-renderer entries and both preloads.
+**All 16 tasks complete.** Test count: **118 on master → 208 on the branch.**
+`typecheck` and `build` clean at every commit, and the build emits both renderer entries
+and both preloads.
+
+Tasks 1–11 were built by implementer subagents and independently reviewed, one reviewer
+per task; every one of those reviews found something. **Tasks 12–16 were built in the
+main session with no reviewer subagent**, because the session they ran in forbade
+dispatching agents. They were reviewed by trace against the same charge instead. That is
+a real reduction in rigour on five tasks, and the whole-branch review has not been run at
+all — it is the outstanding piece of this branch's process.
 
 This file records what each task did and every issue found along the way. Issues have
 their own entries in the second half, each linking back to the task it came from.
@@ -239,6 +246,160 @@ window](#issue-7--dnd-expiry-never-reached-an-open-settings-window), and
 [Issue 8: a pack id reached the filesystem
 unsanitized](#issue-8--a-pack-id-reached-the-filesystem-unsanitized). Plus one forced
 deviation, R7 in the rulings table below.
+
+
+### Task 10 — Schedule, Hydration and General panes
+
+**Commits:** `a53a727`..`e722ffb` · 164 tests · **three fix rounds**
+
+**Problem.** The panes were placeholders. Wiring real controls to `settings:patch` for
+the first time also made every failure mode of that path reachable for the first time.
+
+**Solution.** `defaultValue` + `onBlur` number inputs rather than controlled ones, so a
+clamp cannot fight the user mid-type — then three rounds of correcting what that choice
+costs. A per-field remount counter (`numberField.ts`) makes a clamped or rounded write
+snap the field to what was actually stored, including when the stored value does not
+change. A blur that parses to nothing patches nothing. Time inputs refuse a value that is
+not a real time, because `fromTimeValue('')` is `NaN` and `clampNumber` replaces `NaN`
+with the *default* — backspacing the From field of a 22:00–06:00 window would have
+rewritten it to 00:00–06:00 and taken the user's whole waking day of reminders with it.
+
+**Issues:** four rulings, R9 through R12, recorded in the run ledger. R12 is a departure
+worth naming: a Minor *introduced by* fix round 2 — one revision counter shared by both
+fields in a pane, so settling field A remounted field B and ate what the user was typing
+into it — was fixed rather than deferred, because it was a regression from that round and
+landed in exactly the behaviour the earlier rulings had just bought.
+
+---
+
+### Task 11 — Escalation pane
+
+**Commits:** `e722ffb`..`1e8db0d` · 177 tests · one fix round
+
+**Problem.** Preset cards and a custom ladder editor, over a config field that
+`normalizeConfig` silently replaces when it is invalid.
+
+**Solution.** The trap was flagged before dispatch rather than found after:
+`validateLadder` rejects any non-first stage with `delayMinutes <= 0`, and an invalid
+ladder is replaced wholesale by Standard. So typing `0` into stage 2's delay and blurring
+would have discarded every stage the user had configured, with nothing on screen to say
+why — and Task 10's blur guard does not catch it, because `0` is finite. The pane
+validates the candidate ladder and refuses the write, restoring the field.
+
+The review's one Important was that the guard belonged in core, and it was right by the
+design spec's own rule — a pane wanting a test is the signal. `src/core/ladder.ts` now
+owns `tryUpdateStage`, which also makes the accept-candidate and the patch-candidate the
+same construction rather than two hand-written expressions that happen to match. 13 tests.
+
+---
+
+### Task 12 — Packs pane
+
+**Commit:** `e244a47` · 184 tests
+
+**Problem.** The last placeholder pane. Pack rows, active checkboxes, an editor with an
+explicit Save, revert, and a reveal button.
+
+**Solution.** The pane is thin; the work was in three things it made reachable.
+
+**Line numbers pointed at the wrong line.** `validatePackLines` numbers issues by index
+into the array it is given, and `parsePackText` drops blank and rejected rows from that
+array — so a duplicate on editor row 12 with two blank rows above it reported "Line 10".
+The plan's own manual check is "confirm the error names the right line number", and it
+would have failed on any pack the user had spaced out. `parsePackText` now returns
+`sourceLines`, and `packvalidate` exports `atSourceLines` to map issues back through it.
+Parse errors were already correct, so the two error kinds now agree with each other.
+
+**Unchecking the last active pack** would have been silently undone, since
+`normalizeConfig` replaces an empty `activePackIds` with the default pack. Refused with a
+note, in the same words as the schedule's last-day rule.
+
+**Reveal packs folder was a no-op on a fresh install** — `shell.openPath` on a directory
+that only exists once something has written into it returns an error string nobody reads.
+
+Edit is disabled on a pack whose file failed to parse: `readPack` returns `''` for it, so
+the editor would open empty and Save would look like the way to fix it. Reverting the pack
+currently open closes the editor, because Save would otherwise write the reverted-away
+text straight back.
+
+---
+
+### Task 13 — Tray tooltip shows hydration progress
+
+**Commit:** `aa98b3e` · 187 tests
+
+**Problem.** `Drink now` moved a number that appeared nowhere in the tray. The only proof
+it had worked was the next reminder not firing.
+
+**Solution.** `progressLabel` in core, `1.2 / 4.0 L`, ahead of the countdown in the
+tooltip. Both halves carry a decimal place: "4 / 4.0 L" reads as two different units.
+
+---
+
+### Task 14 — The correctness trio
+
+**Commit:** `cfe9750` · 193 tests
+
+**Problem.** Three deferred Phase 1 findings, one of them a hang.
+
+**Solution.** `mlOnDay` type-checks `ml`. `currentStreak` returns 0 for a non-positive
+goal. And the DST test spec §14 committed to finally exists.
+
+The hang is real, not theoretical: before the fix the test did not fail, it killed the
+vitest worker outright. The plan predicted that and said to treat it as the RED.
+
+Two things about the DST file are worth keeping. Ruling R5 assumed `process.env.TZ` set in
+`beforeAll` would not take effect; it does, under Node 22 and vitest 2.1, on Windows, with
+no pool or config change. But the plan's suggested guard assertion was wrong — it put the
+23-hour day on 7 March, and US Eastern springs forward at 02:00 on the **8th**, so that
+span is a full 24 hours and the guard fails against a correct implementation. The guard
+now pins 23 hours across 8 March and 25 hours across 1 November. Without a guard of some
+kind the whole file passes trivially in a fixed-offset zone, which is exactly what the dev
+machine is.
+
+`afterAll` also had to stop assigning `originalTZ` back unconditionally: on a machine
+where `TZ` is unset that writes the literal string `"undefined"` and leaves every later
+file in that worker somewhere unknown.
+
+---
+
+### Task 15 — The three missing packs
+
+**Commit:** `2430b66` · 208 tests
+
+**Problem.** Drill Sergeant, Wholesome and Deadpan are named in the original spec and were
+never written.
+
+**Solution.** 24 lines each: eight tagged `[0]`, eight `[1]`, five `[2]`, and three
+untagged. The untagged ones are deliberate — an untagged line is eligible at every stage,
+and with `RECENT_LIMIT` at 8 a stage-2 pool of five alone would recycle visibly.
+
+One test beyond the plan's five: no line may name a window mode. The plan states that rule
+in prose for the author and then does not check it, and it is the one pack rule a later
+hand-edit breaks invisibly — a line reading "this is your fullscreen warning" is simply
+wrong for anyone on Gentle.
+
+`extraResources` already ships the whole `packs` directory, so the three files reach a
+packaged build with no config change, and `listPackIds` means the pane lists them with no
+code change either.
+
+---
+
+### Task 16 — Documentation
+
+**Commit:** `658f5fa` · 208 tests
+
+**Problem.** Three places the *original* spec was underspecified and produced real bugs,
+plus a backlog and a checklist that predate everything above.
+
+**Solution.** Spec §8 now says the fullscreen stage takes the display **bounds** rather
+than its work area, and that a ladder may outrun the packs installed beside it. §9 says
+folding is bidirectional. §11 describes config v2 and the user packs directory; §15
+records the 3a/3b split.
+
+The backlog moves everything 3a closed into its own section, records the three macOS
+behaviours confirmed on v0.1.5, and records the Mission Control finding as deferred with
+its reasoning. The manual checklist gains the Phase 3a macOS pass.
 
 ---
 
@@ -485,6 +646,14 @@ reviewed and reversed.
 | R5 | Task 14's `currentStreak([], 0, now)` hang will be verified out-of-band rather than by running it. A synchronous infinite loop ignores test timeouts and would wedge the runner; the bug is confirmed by inspection at `src/core/stats.ts:77-84` | That one watch-it-fail step rests on a bounded harness rather than the suite |
 | R6 | Added an unclosed-tag guard the plan lacked — see [Issue 5](#issue-5--an-unclosed-stage-tag-was-silently-read-as-body-text) | A pack line deliberately starting with `[` is rejected, visibly |
 | R7 | Accepted a forced file rename in Task 9. The plan names both `settings.tsx` (entry) and `Settings.tsx` (component); on NTFS with `core.ignorecase=true` — and on macOS APFS, case-insensitive by default — those are the **same file**, and writing one silently clobbers the other. The component keeps `Settings.tsx` (matching `Popup.tsx`, and the import target for Tasks 10–12); the entry became `settings-entry.tsx` | A one-file rename plus one line in `settings.html`. The rollup entry is the `.html`, so the `.tsx` name never has to match anything |
+| R8 | Task 10 adds a `.catch` on the patch path that surfaces a rejected `settings:patch` in the pane. Task 10 is what made that failure reachable | A few lines of error state in `Settings.tsx` that Tasks 11–12 inherit rather than duplicate |
+| R9 | `key={storedValue}` on every number input, so a clamped write remounts the field and visibly snaps back. The plan's `defaultValue` + `onBlur` pattern defeated spec §2's stated reason for returning the normalized config | A broadcast landing mid-type remounts the input and discards in-progress text. Narrow, and arguably correct: main is the source of truth |
+| R10 | On blur, do not patch at all when the parsed value is not finite. `Number('')` is 0, which clamps *up* to the field's floor — clearing the interval to retype it would have set reminders to every minute | Clearing a field is a no-op rather than a clamp, which is the conventional behaviour for a numeric field with a floor |
+| R11 | Widened R9 and R10 to the time inputs and to entries that normalize to the value already stored, and fixed two Minors in the same code: the autostart checkbox lied until the next restart, and the last-day refusal was silent | One `setLoginItemSettings` call on the patch path, guarded to packaged builds, and one line of note styling |
+| R12 | Fixed a Minor *introduced by* a fix round rather than deferring it — one revision counter shared across a pane's fields, so settling one field ate what was being typed into its sibling | One extra short round. The change is strictly more correct either way |
+| R13 | Extracted Task 11's ladder guard into `src/core/ladder.ts` as `tryUpdateStage`, on the design spec's own rule that a pane wanting a test is the signal | A pure function moves file and gains 13 tests |
+| R14 | Folded three trivia into R13's round because they were one-liners in code already being touched: stage delays now bounded and integer-checked, `CORNERS` made `readonly`, per-stage `aria-label`s | None |
+| R15 | Tasks 12–16 ran without implementer or reviewer subagents, the session having forbidden them, and were reviewed by trace instead | Five tasks carry one pair of eyes rather than two. The whole-branch review is where that gets caught, and it has not been run |
 
 ---
 
@@ -503,6 +672,10 @@ Real but non-blocking. Carried to the final whole-branch review to triage.
 | [Task 6](#task-6--applying-a-config-change-to-a-running-scheduler) | The ladder-shortening test asserts only `stageIndex`, not the emitted effect, unlike its sibling |
 | [Task 7](#task-7--the-pack-line-editor-text-format) | No test for CRLF input or a trailing newline. Correct by inspection via `raw.trim()`, but resting on implicit semantics a refactor could break silently |
 | [Task 7](#task-7--the-pack-line-editor-text-format) | No test for whitespace preceding a tag (`  [1] text`) — same caveat |
+| [Task 12](#task-12--packs-pane) | Switching panes in the sidebar discards an unsaved pack edit with no prompt. The pane unmounts, so guarding it means lifting the editor state into `Settings.tsx` |
+| [Task 12](#task-12--packs-pane) | An `activePackId` with no file on disk — a hand-deleted `custom.json` — is invisible in the list yet still counts toward the last-pack refusal |
+| [Task 12](#task-12--packs-pane) | The pack list is fetched once at mount, so a pack file added by hand while settings is open is not listed until it is reopened |
+| [Task 13](#task-13--tray-tooltip-shows-hydration-progress) | The tooltip reads the whole intake log on every tray refresh, so every 30 seconds rather than only on show. Still trivial at ~10 events a day |
 
 ---
 
@@ -511,13 +684,18 @@ Real but non-blocking. Carried to the final whole-branch review to triage.
 Nothing on this branch has run on macOS. Builds happen only in CI, on a `v*` tag push;
 no build of any kind works on the Windows dev machine.
 
-- The tray's `Settings…` item currently does nothing on macOS. That is the
-  `console.log` stub, and Task 9 replaces it. Worth knowing that **after** Task 9 lands,
-  the same click can still appear to do nothing for a different reason: in an
-  `LSUIElement` app with the dock hidden, a settings window frequently will not come to
-  front on `show()`. `app.focus({ steal: true })` is meant to defeat that and cannot be
-  verified from Windows. It goes on the Task 16 checklist, and it is the first thing to
-  check on a new `.dmg`.
-- Settings opened *while a reminder is showing* is expected to sit behind the popup, and
-  to be unreachable at the fullscreen stage until the reminder is answered. That is the
-  core promise working, not a bug.
+Three things have since been confirmed on v0.1.5 (2026-08-28) and are recorded in
+`docs/status-and-backlog.md` rather than here:
+
+- Settings opens from the tray and comes to the **front** under `LSUIElement` with the
+  dock hidden, even over a fullscreen app. `app.focus({ steal: true })` in
+  `settings-window.ts` is what does it — load-bearing, not redundant.
+- Settings sits **behind** an active reminder. A second window now exists in the process
+  and the core promise survived it.
+- The reminder cannot be escaped with Cmd-Tab.
+
+Everything else on this branch is unrun on macOS, including all of Tasks 12–16. The
+checklist to run against a fresh `.dmg` is the Phase 3a section of
+`docs/manual-verification.md`; the pack editor's line numbers and the corrupt-pack row
+are the two checks most likely to find something, because they are the two whose failure
+modes are silent.
