@@ -1,0 +1,30 @@
+{
+  "id": "drill-sergeant",
+  "name": "Drill Sergeant",
+  "lines": [
+    { "text": "ON YOUR FEET. HYDRATE.", "stage": [0] },
+    { "text": "Water. Now. Move.", "stage": [0] },
+    { "text": "Hydration check. You are failing it.", "stage": [0] },
+    { "text": "{{glasses}} {{glassWord}} logged. Not enough. Move.", "stage": [0] },
+    { "text": "This is the easy order. Take it.", "stage": [0] },
+    { "text": "Glass. Tap. Drink. Dismissed.", "stage": [0] },
+    { "text": "You have had worse assignments.", "stage": [0] },
+    { "text": "Stand up. Two minutes. Go.", "stage": [0] },
+    { "text": "I said water.", "stage": [1] },
+    { "text": "Still seated. Noted.", "stage": [1] },
+    { "text": "{{goalPct}}% of goal. That is not a number to report.", "stage": [1] },
+    { "text": "Nobody drinks it for you.", "stage": [1] },
+    { "text": "The tap has not moved. Neither have you.", "stage": [1] },
+    { "text": "Second time asking. There will be a third.", "stage": [1] },
+    { "text": "Discipline is drinking it before you want it.", "stage": [1] },
+    { "text": "Day {{streak}} of the streak. Do not lose it sitting down.", "stage": [1] },
+    { "text": "DRINK. THE. WATER.", "stage": [2] },
+    { "text": "ON YOUR FEET. THIS IS NOT OPTIONAL.", "stage": [2] },
+    { "text": "NO MORE ASKING. GO.", "stage": [2] },
+    { "text": "WATER. NOW. THEN WE ARE DONE.", "stage": [2] },
+    { "text": "YOU HEARD ME THE FIRST TIME.", "stage": [2] },
+    { "text": "Hydrate. That is the whole order." },
+    { "text": "Water is not a reward. It is maintenance." },
+    { "text": "One glass. Then back to work." }
+  ]
+}

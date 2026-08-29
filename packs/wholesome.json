@@ -1,0 +1,30 @@
+{
+  "id": "wholesome",
+  "name": "Wholesome",
+  "lines": [
+    { "text": "You are doing great. A glass of water would make it better.", "stage": [0] },
+    { "text": "Little break? Water is right there.", "stage": [0] },
+    { "text": "{{glasses}} {{glassWord}} so far today. That is something.", "stage": [0] },
+    { "text": "Your body has been carrying you all day. Give it water.", "stage": [0] },
+    { "text": "This is a kind reminder, nothing more.", "stage": [0] },
+    { "text": "Water first, then whatever comes next.", "stage": [0] },
+    { "text": "You have earned two minutes and a cold glass.", "stage": [0] },
+    { "text": "Hope the day is going gently. Have some water.", "stage": [0] },
+    { "text": "Still thinking of you. Still hoping you drink something.", "stage": [1] },
+    { "text": "{{goalPct}}% of the way there. Every glass counts.", "stage": [1] },
+    { "text": "No rush, but your water is waiting.", "stage": [1] },
+    { "text": "It is okay to stop for a moment. Really.", "stage": [1] },
+    { "text": "Day {{streak}} of looking after yourself. Keep it going.", "stage": [1] },
+    { "text": "You have done harder things than standing up.", "stage": [1] },
+    { "text": "A glass now saves a headache later.", "stage": [1] },
+    { "text": "Whatever you are working on will still be there.", "stage": [1] },
+    { "text": "Please drink some water. You matter more than the task.", "stage": [2] },
+    { "text": "This is the loud version of caring about you.", "stage": [2] },
+    { "text": "Stop for one minute. Water. Then carry on.", "stage": [2] },
+    { "text": "You have been going a long time. Please drink something.", "stage": [2] },
+    { "text": "I will not be quiet about this one. Have some water.", "stage": [2] },
+    { "text": "Water is the easiest kind thing you can do for yourself." },
+    { "text": "Refill when you pass the tap." },
+    { "text": "Hydration counts as looking after yourself." }
+  ]
+}

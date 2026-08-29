@@ -1,0 +1,30 @@
+{
+  "id": "deadpan",
+  "name": "Deadpan",
+  "lines": [
+    { "text": "Water. It is time for some.", "stage": [0] },
+    { "text": "This is a reminder to drink water.", "stage": [0] },
+    { "text": "{{glasses}} {{glassWord}} today. That is the number.", "stage": [0] },
+    { "text": "The interval has elapsed.", "stage": [0] },
+    { "text": "You are a container. It is low.", "stage": [0] },
+    { "text": "Water is available. It usually is.", "stage": [0] },
+    { "text": "This message appears every so often. This is one of those times.", "stage": [0] },
+    { "text": "There is a glass. It is empty. That is the problem.", "stage": [0] },
+    { "text": "The reminder is still here. Nothing has changed.", "stage": [1] },
+    { "text": "{{goalPct}}% of the goal. The remainder is the rest.", "stage": [1] },
+    { "text": "You have not had water since the last time you had water.", "stage": [1] },
+    { "text": "This is the second message. There is a third.", "stage": [1] },
+    { "text": "Time continues to pass. So does the dehydration.", "stage": [1] },
+    { "text": "Day {{streak}}. The streak is a number that goes up when you drink.", "stage": [1] },
+    { "text": "No new information. Same water. Same you.", "stage": [1] },
+    { "text": "The tap is in the same place it was this morning.", "stage": [1] },
+    { "text": "This message will not go away.", "stage": [2] },
+    { "text": "The reminder has escalated. That is what it does.", "stage": [2] },
+    { "text": "Drinking the water ends this. Nothing else does.", "stage": [2] },
+    { "text": "You are reading a reminder instead of drinking water.", "stage": [2] },
+    { "text": "It got louder. It will not get quieter.", "stage": [2] },
+    { "text": "Water. In a glass. Into you." },
+    { "text": "Hydration is mostly repetition." },
+    { "text": "This will happen again later." }
+  ]
+}
