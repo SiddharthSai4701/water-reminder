@@ -59,8 +59,9 @@ jobs:
           echo "--- largest inside the app ---" | tee -a "$GITHUB_STEP_SUMMARY"
           find "$APP" -type f -size +2M -exec du -m {} + \
             | sort -rn | head -20 | tee -a "$GITHUB_STEP_SUMMARY"
-          echo "--- locales kept ---" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "--- localizations kept (expect a handful, not 55) ---" | tee -a "$GITHUB_STEP_SUMMARY"
           find "$APP" -name '*.lproj' | wc -l | tee -a "$GITHUB_STEP_SUMMARY"
+          find "$APP" -name '*.lproj' -exec du -mc {} + | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload artifact

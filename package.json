@@ -65,6 +65,9 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     },
+    "dmg": {
+      "format": "ULMO"
+    },
     "mac": {
       "target": [
         {
